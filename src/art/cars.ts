@@ -1,46 +1,56 @@
 import { drawRows, makeCanvas, ctxOf, type Palette } from './pixel.ts';
 
 /**
- * Tiny side-view cars for the exterior street.
+ * Side-view cars for the exterior street.
  *
  * Sprites face right; the painter flips them when a car drives left.
- * Traffic sedans are muted city colours; the delivery van is branded and taller,
- * with a pizza box on the roof and the driver visible in the cabin.
+ * Sized to read clearly on the 158px-wide street (roughly double the first draft).
  */
 
 const TRAFFIC_COLORS = [
-  { body: '#c45a3a', dark: '#8a3420', light: '#e08060' },
-  { body: '#4a6a8a', dark: '#2e4560', light: '#6a8ab0' },
-  { body: '#5a6a4a', dark: '#3a4a30', light: '#7a8a64' },
-  { body: '#8a7a4a', dark: '#5c4e2e', light: '#b0a060' },
-  { body: '#6a5a7a', dark: '#443850', light: '#8a7a9a' },
-  { body: '#3a3a40', dark: '#1e1e22', light: '#5a5a62' },
+  { body: '#c45a3a', roof: '#e08060', glass: '#8ec4e0' },
+  { body: '#4a6a8a', roof: '#6a8ab0', glass: '#a8d4f0' },
+  { body: '#5a6a4a', roof: '#7a8a64', glass: '#9ec8b0' },
+  { body: '#8a7a4a', roof: '#b0a060', glass: '#c8d8e8' },
+  { body: '#6a5a7a', roof: '#8a7a9a', glass: '#b0c0e0' },
+  { body: '#3a3a40', roof: '#5a5a62', glass: '#7a9ab0' },
 ] as const;
 
-/** Facing right: cabin / windscreen on the right-hand side. */
+/** Facing right — ~28×14 sedan. */
 const SEDAN = [
-  '......wwww......',
-  '.....wggggw.....',
-  '....wggggggw....',
-  '..bbbbbbbbbbbb..',
-  '.bbbbbbbbbbbbbb.',
-  'bbbbbbbbbbbbbbbb',
-  'bb.tt.bbbb.tt.bb',
-  '..ttt......ttt..',
+  '............rrrrrr..........',
+  '..........rrrrrrrrrr........',
+  '.........rrggggggggrr.......',
+  '........rrggggggggggrr......',
+  '......bbbbbbbbbbbbbbbbbb....',
+  '....bbbbbbbbbbbbbbbbbbbbbb..',
+  '...bbbbbbbbbbbbbbbbbbbbbbbb.',
+  '..bbbbbbbbbbbbbbbbbbbbbbbbbb',
+  '.bbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  'bbb..tttt..bbbbbb..tttt..bbb',
+  'bb...tttt...bbbb...tttt...bb',
+  '.....tttt..........tttt.....',
+  '......tt............tt......',
 ];
 
-/** Facing right: cargo bay left, blue cabin + driver right, pizza box on roof. */
+/** Facing right — taller pizza van with roof box and driver in the cabin. */
 const VAN = [
-  '....oooo........',
-  '...oPPPo........',
-  '..ooooooo.......',
-  '.vvvvvvvvvvv....',
-  'vvvvvvvvvvvvccc.',
-  'vvvvvvvvvvccDDcc',
-  'vvvvvvvvvvcccccc',
-  'vvvvvvvvvvcccccc',
-  'vv.tt.vvvv.tt.cc',
-  '..ttt......ttt..',
+  '........oooooo..............',
+  '.......oPPPPPPo.............',
+  '......oooooooooo............',
+  '.....vvvvvvvvvvvvvv.........',
+  '....vvvvvvvvvvvvvvvvccc.....',
+  '...vvvvvvvvvvvvvvvcccccc....',
+  '..vvvvvvvvvvvvvvvcccDDccc...',
+  '.vvvvvvvvvvvvvvvvccccccccc..',
+  'vvvvvvvvvvvvvvvvccccccccccc.',
+  'vvvvvvvvvvvvvvvvcccccccccccc',
+  'vvvvvvvvvvvvvvvvcccccccccccc',
+  'vvv..tttt..vvvvvv..tttt..ccc',
+  'vv...tttt...vvvv...tttt...cc',
+  '.....tttt..........tttt.....',
+  '......tt............tt......',
 ];
 
 const carCache = new Map<string, HTMLCanvasElement>();
@@ -56,22 +66,22 @@ function paint(rows: string[], palette: Palette): HTMLCanvasElement {
 /** Ordinary passer-by car. `seed` picks the body colour. */
 export function trafficCarSprite(seed: number): HTMLCanvasElement {
   const tint = TRAFFIC_COLORS[Math.abs(seed) % TRAFFIC_COLORS.length];
-  const key = `t${Math.abs(seed) % TRAFFIC_COLORS.length}`;
+  const key = `t2-${Math.abs(seed) % TRAFFIC_COLORS.length}`;
   const hit = carCache.get(key);
   if (hit) return hit;
   const canvas = paint(SEDAN, {
     b: tint.body,
-    w: tint.light,
-    g: '#8ec4e0',
+    r: tint.roof,
+    g: tint.glass,
     t: '#1a1a1c',
   });
   carCache.set(key, canvas);
   return canvas;
 }
 
-/** Branded pizza delivery van — taller body, roof pizza box, driver in the cabin. */
+/** Branded pizza delivery van — roof pizza box, blue cabin, visible driver. */
 export function deliveryVanSprite(): HTMLCanvasElement {
-  const key = 'delivery';
+  const key = 'delivery2';
   const hit = carCache.get(key);
   if (hit) return hit;
   const canvas = paint(VAN, {

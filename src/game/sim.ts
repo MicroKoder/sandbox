@@ -208,7 +208,8 @@ function updateStreet(ctx: SimContext): void {
       id: w.nextId++,
       seed: rng.int(1, 9999),
       x: dir === 1 ? -10 : ROOM_W + 10,
-      y: 124 + rng.int(0, 10),
+      // Pavement band is y 96–118; keep feet on the sidewalk, not the road.
+      y: 108 + rng.int(0, 6),
       dir,
       decided: false,
       anim: 0,
@@ -239,7 +240,7 @@ function updateCars(ctx: SimContext): void {
   for (let i = w.cars.length - 1; i >= 0; i--) {
     const car = w.cars[i];
     car.x += car.dir * car.speed;
-    if (car.x < -36 || car.x > ROOM_W + 36) w.cars.splice(i, 1);
+    if (car.x < -44 || car.x > ROOM_W + 44) w.cars.splice(i, 1);
   }
 
   if (w.carCooldown > 0) w.carCooldown--;
@@ -253,18 +254,25 @@ function updateCars(ctx: SimContext): void {
   }
 }
 
+/**
+ * Road layout (room y): pavement 96–118, road 118–170, centre line at 144.
+ * Top lane (above the line) drives left; bottom lane drives right.
+ */
+const ROAD_LANE_TOP_Y = 140;
+const ROAD_LANE_BOTTOM_Y = 164;
+
 function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
   const { world: w, rng } = ctx;
   if (kind === 'delivery' && w.cars.some((c) => c.kind === 'delivery')) return;
+  // Top of road → left (−1), bottom → right (+1).
   const dir: 1 | -1 = rng.chance(50) ? 1 : -1;
-  // Two road lanes so opposing traffic does not sit on top of each other.
-  const lane = dir === 1 ? 148 : 156;
+  const lane = dir === 1 ? ROAD_LANE_BOTTOM_Y : ROAD_LANE_TOP_Y;
   w.cars.push({
     id: w.nextId++,
     kind,
     seed: rng.int(1, 9999),
-    x: dir === 1 ? -28 : ROOM_W + 28,
-    y: kind === 'delivery' ? lane - 2 : lane,
+    x: dir === 1 ? -34 : ROOM_W + 34,
+    y: lane,
     dir,
     speed: kind === 'delivery' ? 0.85 + rng.int(0, 20) / 100 : 0.55 + rng.int(0, 35) / 100,
   });
