@@ -49,7 +49,7 @@ export const C = {
   black: '#000000',
   white: '#ffffff',
   shadow: 'rgba(0,0,0,0.45)',
-} as const;
+};
 
 /** Distinct colours used to identify the player and the nine rival pizzerias. */
 export const RIVAL_COLORS = [
