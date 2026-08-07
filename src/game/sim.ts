@@ -258,8 +258,8 @@ function updateCars(ctx: SimContext): void {
  * Road layout (room y): pavement 96–118, road 118–170, centre line at 144.
  * Top lane (above the line) drives left; bottom lane drives right.
  */
-const ROAD_LANE_TOP_Y = 140;
-const ROAD_LANE_BOTTOM_Y = 164;
+const ROAD_LANE_TOP_Y = 141;
+const ROAD_LANE_BOTTOM_Y = 166;
 
 function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
   const { world: w, rng } = ctx;
