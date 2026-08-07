@@ -1,9 +1,10 @@
 import { C, MOOD_COLORS } from '../core/palette.ts';
 import type { Painter } from '../core/painter.ts';
 import { getMoodIcons } from '../art/icons.ts';
+import { deliveryVanSprite, trafficCarSprite } from '../art/cars.ts';
 import { drawPerson, visitorLook, STAFF_LOOKS, type Pose } from '../art/people.ts';
 import { ctxOf, makeCanvas } from '../art/pixel.ts';
-import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_H, ROOM_W, TABLES, machinePos } from '../game/entities.ts';
+import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_H, ROOM_W, TABLES, machinePos, type Car } from '../game/entities.ts';
 import type { World } from '../game/entities.ts';
 import {
   TICKS_PER_HOUR,
@@ -211,6 +212,18 @@ function drawWaitMark(p: Painter, x: number, y: number): void {
   p.text('?', Math.round(x) + 5, Math.round(y) - 26, C.gold);
 }
 
+function drawCar(p: Painter, car: Car, oy: number): void {
+  const sprite = car.kind === 'delivery' ? deliveryVanSprite() : trafficCarSprite(car.seed);
+  const w = sprite.width;
+  const h = sprite.height;
+  const x = Math.round(car.x) - Math.floor(w / 2);
+  const y = oy + Math.round(car.y) - h;
+  if (car.dir < 0) p.blitFlipped(sprite, x, y, w);
+  else p.blit(sprite, x, y);
+  // Soft shadow under the wheels.
+  p.fill(x + 2, oy + Math.round(car.y) - 1, w - 4, 1, 'rgba(0,0,0,0.35)');
+}
+
 // ---------------------------------------------------------------- exterior
 
 export function drawExterior(p: Painter, s: GameState, w: World, oy: number): void {
@@ -321,12 +334,19 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
   p.hLine(0, oy + 96, ROOM_W, '#a29b8c');
   for (let x = 0; x < ROOM_W; x += 12) p.vLine(x, oy + 96, 22, '#7a7568');
   p.fill(0, oy + 118, ROOM_W, ROOM_H - 118, '#3d3a36');
-  for (let x = 4; x < ROOM_W; x += 18) p.fill(x, oy + 146, 9, 2, '#c9c0aa');
+  // Lane markings so the cars read as traffic rather than floating sprites.
+  p.hLine(0, oy + 142, ROOM_W, '#c9b66a');
+  for (let x = 4; x < ROOM_W; x += 18) p.fill(x, oy + 141, 9, 2, '#c9c0aa');
+  for (let x = 4; x < ROOM_W; x += 18) p.fill(x, oy + 158, 9, 2, '#c9c0aa');
 
-  // Pedestrians.
+  // Pedestrians on the pavement.
   for (const walker of w.walkers) {
     drawVisitor(p, walker.seed, walker.x, oy + walker.y, poseOf(walker.anim, true), walker.dir);
   }
+
+  // Cars on the road — traffic sedans and the branded delivery van.
+  const cars = [...w.cars].sort((a, b) => a.y - b.y);
+  for (const car of cars) drawCar(p, car, oy);
 
   if (night) {
     p.setAlpha(0.28);

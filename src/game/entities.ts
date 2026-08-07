@@ -99,16 +99,32 @@ export interface Walker {
   anim: number;
 }
 
+export type CarKind = 'traffic' | 'delivery';
+
+/** Side-view car driving along the exterior road. */
+export interface Car {
+  id: number;
+  kind: CarKind;
+  seed: number;
+  x: number;
+  y: number;
+  dir: 1 | -1;
+  speed: number;
+}
+
 export interface World {
   customers: Customer[];
   staff: Staff[];
   walkers: Walker[];
+  cars: Car[];
   nextId: number;
   /** Vending machine busy timers, one per offered machine. */
   machineBusy: number[];
   /** Which (table, seat) pairs are taken. */
   seats: boolean[][];
   spawnCooldown: number;
+  /** Ticks until the next traffic car may spawn. */
+  carCooldown: number;
 }
 
 export function createWorld(): World {
@@ -116,10 +132,12 @@ export function createWorld(): World {
     customers: [],
     staff: [],
     walkers: [],
+    cars: [],
     nextId: 1,
     machineBusy: [0, 0, 0, 0, 0],
     seats: TABLES.map(() => new Array(SEATS_PER_TABLE).fill(false)),
     spawnCooldown: 0,
+    carCooldown: 20,
   };
 }
 

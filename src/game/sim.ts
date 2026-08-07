@@ -164,6 +164,7 @@ export function tick(ctx: SimContext): void {
   }
 
   updateStreet(ctx);
+  updateCars(ctx);
   updateStaff(ctx);
   updateCustomers(ctx);
   updateMachines(w);
@@ -229,6 +230,44 @@ function updateStreet(ctx: SimContext): void {
     }
     if (p.x < -14 || p.x > ROOM_W + 14) w.walkers.splice(i, 1);
   }
+}
+
+/** Road traffic and pizza delivery vans on the exterior street. */
+function updateCars(ctx: SimContext): void {
+  const { state: s, world: w, rng } = ctx;
+
+  for (let i = w.cars.length - 1; i >= 0; i--) {
+    const car = w.cars[i];
+    car.x += car.dir * car.speed;
+    if (car.x < -36 || car.x > ROOM_W + 36) w.cars.splice(i, 1);
+  }
+
+  if (w.carCooldown > 0) w.carCooldown--;
+  const hour = s.tick / 600; // TICKS_PER_HOUR — keep local to avoid a circular import pull
+  const night = hour < 6 || hour >= 21;
+  const trafficCount = w.cars.filter((c) => c.kind === 'traffic').length;
+  const maxTraffic = night ? 1 : 3;
+  if (trafficCount < maxTraffic && w.carCooldown <= 0 && rng.chance(night ? 2 : 4)) {
+    spawnCar(ctx, 'traffic');
+    w.carCooldown = night ? rng.int(80, 160) : rng.int(35, 90);
+  }
+}
+
+function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
+  const { world: w, rng } = ctx;
+  if (kind === 'delivery' && w.cars.some((c) => c.kind === 'delivery')) return;
+  const dir: 1 | -1 = rng.chance(50) ? 1 : -1;
+  // Two road lanes so opposing traffic does not sit on top of each other.
+  const lane = dir === 1 ? 148 : 156;
+  w.cars.push({
+    id: w.nextId++,
+    kind,
+    seed: rng.int(1, 9999),
+    x: dir === 1 ? -28 : ROOM_W + 28,
+    y: kind === 'delivery' ? lane - 2 : lane,
+    dir,
+    speed: kind === 'delivery' ? 0.85 + rng.int(0, 20) / 100 : 0.55 + rng.int(0, 35) / 100,
+  });
 }
 
 /** A pedestrian at the door decides whether to become a customer (C.java:6486). */
@@ -892,6 +931,7 @@ function updateDelivery(ctx: SimContext): void {
   const gain = Math.floor((s.netPct * qty * s.pizzaPrice[choice]) / 100);
   s.money += gain;
   s.profits.delivery += gain;
+  spawnCar(ctx, 'delivery');
 }
 
 // ----------------------------------------------------------------- day end
@@ -907,7 +947,9 @@ function endDay(ctx: SimContext): void {
   s.open = false;
   w.customers = [];
   w.walkers = [];
+  w.cars = [];
   w.staff = [];
+  w.carCooldown = 20;
   w.seats = TABLES.map(() => [false, false, false]);
   s.litter = [];
   s.profits = { pizza: 0, product: 0, machine: 0, delivery: 0 };
