@@ -141,6 +141,58 @@ export function fieldLine(p: Painter, label: string, value: string, x: number, y
   p.textClipped(label, x, y, w - p.measure(value) - 4, C.inkDim);
 }
 
+/** Compact raised button used for quantity / price deltas. */
+export function miniButton(
+  p: Painter,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  label: string,
+  opts?: { positive?: boolean },
+): void {
+  const positive = opts?.positive ?? !label.startsWith('-');
+  p.panel(x, y, w, h, { fill: C.panelHi, raised: true });
+  p.stroke(x, y, w, h, positive ? C.basil : C.tomato);
+  p.text(label, x + w / 2, y + Math.max(1, Math.floor((h - FONT_HEIGHT) / 2)), positive ? C.basil : C.tomato, 'center');
+}
+
+export interface AdjustButtonHit extends Rect {
+  delta: number;
+}
+
+/**
+ * Draws a titled row of ±big / ±small adjust buttons and returns their hit boxes.
+ * Used on the stock and price screens so mouse/touch can buy or sell without keys.
+ */
+export function adjustButtons(
+  p: Painter,
+  area: Rect,
+  title: string,
+  small: number,
+  big: number,
+  opts?: { suffix?: string },
+): AdjustButtonHit[] {
+  const suffix = opts?.suffix ?? '';
+  p.text(title, area.x + 2, area.y + 2, C.inkDim);
+
+  const deltas = [big, small, -small, -big];
+  const labels = deltas.map((d) => `${d > 0 ? '+' : ''}${d}${suffix}`);
+  const gap = 2;
+  const btnY = area.y + 11;
+  const btnH = Math.max(11, area.h - 13);
+  const usable = area.w - 4;
+  const btnW = Math.floor((usable - gap * (labels.length - 1)) / labels.length);
+  const hits: AdjustButtonHit[] = [];
+
+  labels.forEach((label, i) => {
+    const bx = area.x + 2 + i * (btnW + gap);
+    miniButton(p, bx, btnY, btnW, btnH, label, { positive: deltas[i] > 0 });
+    hits.push({ x: bx, y: btnY, w: btnW, h: btnH, delta: deltas[i] });
+  });
+  return hits;
+}
+
 export function formatMoney(v: number): string {
   const sign = v < 0 ? '-' : '';
   const digits = Math.abs(Math.round(v)).toString();

@@ -60,6 +60,7 @@ import {
 import { tick, warnings } from '../game/sim.ts';
 import type { Key } from '../ui/input.ts';
 import {
+  adjustButtons,
   dialog,
   fieldLine,
   formatMoney,
@@ -70,6 +71,7 @@ import {
   scrollbar,
   softkeys,
   subTabs,
+  type AdjustButtonHit,
 } from '../ui/widgets.ts';
 import { ConfirmScreen, EndingScreen, HelpScreen, MenuScreen, saveSession } from './menu.ts';
 import { drawExterior, drawInterior } from './pizzeria.ts';
@@ -140,6 +142,8 @@ export class PlayScreen implements Screen {
   private message: string | null = null;
   private messageTimer = 0;
   private accumulator = 0;
+  /** Hit boxes for the ±quantity / ±price buttons drawn in the detail pane. */
+  private adjustHits: AdjustButtonHit[] = [];
 
   enter(app: App): void {
     if (!app.session) app.reset(new MenuScreen());
@@ -477,6 +481,7 @@ export class PlayScreen implements Screen {
   }
 
   private drawList(p: Painter, s: GameState): void {
+    this.adjustHits = [];
     const rows = this.rows(s);
     if (rows.length === 0) {
       notice(p, this.emptyText(), LIST_AREA);
@@ -484,7 +489,8 @@ export class PlayScreen implements Screen {
     }
 
     const rowH = 18;
-    const detailH = 24;
+    // Quantity / price screens need a taller detail pane for the clickable ± buttons.
+    const detailH = this.adjustSteps(s) ? 28 : 24;
     const areaH = LIST_AREA.h - detailH;
     let cursor = this.cursor[this.tab];
     cursor = Math.max(0, Math.min(cursor, rows.length - 1));
@@ -541,9 +547,17 @@ export class PlayScreen implements Screen {
     const w = LIST_AREA.w - 8;
     switch (this.tab) {
       case 1: {
-        const hint = this.sub === 0 ? S.changePrice : S.changePrice;
-        p.text(hint.split('\n')[0], 4, y + 3, C.inkDim);
-        p.text(hint.split('\n')[1], 4, y + 12, C.orange);
+        const step = this.adjustSteps(s);
+        if (step) {
+          this.adjustHits = adjustButtons(
+            p,
+            { x: LIST_AREA.x, y, w: LIST_AREA.w, h },
+            'ИЗМЕНЕНИЕ ЦЕНЫ',
+            step.small,
+            step.big,
+            { suffix: '$' },
+          );
+        }
         break;
       }
       case 2:
@@ -558,9 +572,16 @@ export class PlayScreen implements Screen {
       case 3:
       case 4:
         if (this.sub === 0) {
-          const text = this.tab === 3 ? S.changeAmount1000 : S.changeAmount100;
-          p.text(text.split('\n')[0], 4, y + 3, C.inkDim);
-          p.text(text.split('\n')[1], 4, y + 12, C.orange);
+          const step = this.adjustSteps(s);
+          if (step) {
+            this.adjustHits = adjustButtons(
+              p,
+              { x: LIST_AREA.x, y, w: LIST_AREA.w, h },
+              'ИЗМЕНЕНИЕ КОЛИЧЕСТВА',
+              step.small,
+              step.big,
+            );
+          }
         } else {
           fieldLine(p, S.price, item.right ?? '', 4, y + 3, w);
           p.text('ВЫБОР — НАЛАДИТЬ ПОСТАВКУ', 4, y + 12, C.orange);
@@ -1055,11 +1076,25 @@ export class PlayScreen implements Screen {
       return;
     }
 
+    // Quantity / price ± buttons in the detail pane.
+    for (const hit of this.adjustHits) {
+      if (x >= hit.x && x < hit.x + hit.w && y >= hit.y && y < hit.y + hit.h) {
+        const step = this.adjustSteps(s);
+        const rows = this.rows(s);
+        if (!step || rows.length === 0) return;
+        const id = rows[Math.min(this.cursor[this.tab], rows.length - 1)].id;
+        step.apply(id, hit.delta);
+        app.cue(hit.delta > 0 ? 'cash' : 'select');
+        return;
+      }
+    }
+
     // List rows: first tap selects, a tap on the selected row activates it.
     const rows = this.rows(s);
     if (rows.length === 0 || x >= CONTENT.w) return;
     const rowH = 18;
-    const areaH = LIST_AREA.h - 24;
+    const detailH = this.adjustSteps(s) ? 28 : 24;
+    const areaH = LIST_AREA.h - detailH;
     if (y < LIST_AREA.y || y >= LIST_AREA.y + areaH) return;
     const index = this.first[this.tab] + Math.floor((y - LIST_AREA.y) / rowH);
     if (index < 0 || index >= rows.length) return;
