@@ -2,9 +2,9 @@ import { TABLE_SLOTS, SEATS_PER_TABLE } from '../data/content.ts';
 
 /** Interior view is drawn in its own 158x150 pixel space. */
 export const ROOM_W = 158;
-export const ROOM_H = 150;
+export const ROOM_H = 170;
 
-export const DOOR = { x: 79, y: 140 };
+export const DOOR = { x: 79, y: 152 };
 export const KITCHEN_Y = 34;
 export const OVEN_XS = [112, 126, 140];
 

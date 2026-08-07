@@ -269,10 +269,7 @@ export class PlayScreen implements Screen {
   }
 
   private drawSoftkeys(p: Painter, s: GameState): void {
-    const subs = SUB_TABS[this.tab];
-    const left = subs.length > 1 ? 'TAB' : S.toMenu;
-    const right = this.actionLabel(s);
-    softkeys(p, left, right, TAB_TITLES[this.tab]);
+    softkeys(p, 'МЕНЮ', this.actionLabel(s), TAB_TITLES[this.tab]);
   }
 
   // ------------------------------------------------------------- tab bodies
@@ -1005,11 +1002,12 @@ export class PlayScreen implements Screen {
       return;
     }
 
-    // Bottom bar: left softkey flips the sub-screen, right one confirms.
+    // Bottom bar: left opens the menu, the middle flips the sub-screen, the
+    // right acts on the selected row.
     if (y >= SCREEN_H - BOTTOM_BAR_H) {
-      if (x < SCREEN_W / 3) this.key(app, 'soft1');
+      if (x < SCREEN_W / 3) this.openMenu(app);
       else if (x > (SCREEN_W * 2) / 3) this.key(app, 'select');
-      else this.openMenu(app);
+      else this.key(app, 'soft1');
       return;
     }
 

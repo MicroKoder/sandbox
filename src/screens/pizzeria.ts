@@ -3,7 +3,7 @@ import type { Painter } from '../core/painter.ts';
 import { getMoodIcons } from '../art/icons.ts';
 import { drawPerson, visitorLook, STAFF_LOOKS, type Pose } from '../art/people.ts';
 import { ctxOf, makeCanvas } from '../art/pixel.ts';
-import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_W, TABLES, machinePos } from '../game/entities.ts';
+import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_H, ROOM_W, TABLES, machinePos } from '../game/entities.ts';
 import type { World } from '../game/entities.ts';
 import {
   TICKS_PER_HOUR,
@@ -68,8 +68,8 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
   const x0 = 0;
 
   // Floor.
-  p.fill(x0, oy, ROOM_W, 150, '#4a382a');
-  for (let ty = 0; ty < 150; ty += 8) {
+  p.fill(x0, oy, ROOM_W, ROOM_H, '#4a382a');
+  for (let ty = 0; ty < ROOM_H; ty += 8) {
     for (let tx = 0; tx < ROOM_W; tx += 8) {
       const alt = ((tx / 8 + ty / 8) | 0) % 2 === 0;
       p.fill(x0 + tx, oy + ty, 8, 8, alt ? '#54402f' : '#4a382a');
@@ -112,7 +112,7 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
     drawPlant(p, x0 + 150, oy + 46);
     drawPlant(p, x0 + 150, oy + 118);
   }
-  if (s.upgrades[3]) drawBin(p, x0 + 6, oy + 128);
+  if (s.upgrades[3]) drawBin(p, x0 + 6, oy + 134);
 
   // Tables.
   if (s.upgrades[UPGRADE_TABLES]) {
@@ -126,9 +126,11 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
     drawLitter(p, x0 + item.x, oy + item.y, item.kind);
   }
 
-  // Door.
-  p.box(x0 + DOOR.x - 12, oy + 140, 24, 10, '#2f2018', '#8a6a44');
-  p.text(s.open ? 'ОТКР' : 'ЗАКР', x0 + DOOR.x, oy + 142, s.open ? C.basil : C.inkFaint, 'center');
+  // Door, set into the near wall at the bottom of the room.
+  p.fill(x0, oy + ROOM_H - 14, ROOM_W, 14, '#3a2a1e');
+  p.hLine(x0, oy + ROOM_H - 14, ROOM_W, '#5c4530');
+  p.box(x0 + DOOR.x - 14, oy + ROOM_H - 13, 28, 12, '#2f2018', '#8a6a44');
+  p.text(s.open ? 'ОТКРЫТО' : 'ЗАКРЫТО', x0 + DOOR.x, oy + ROOM_H - 10, s.open ? C.basil : C.inkFaint, 'center');
 
   // People, painter's-algorithm sorted by feet position.
   const drawables: Array<{ y: number; draw: () => void }> = [];
@@ -318,8 +320,8 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
   p.fill(0, oy + 96, ROOM_W, 22, '#8a8477');
   p.hLine(0, oy + 96, ROOM_W, '#a29b8c');
   for (let x = 0; x < ROOM_W; x += 12) p.vLine(x, oy + 96, 22, '#7a7568');
-  p.fill(0, oy + 118, ROOM_W, 32, '#3d3a36');
-  for (let x = 4; x < ROOM_W; x += 18) p.fill(x, oy + 132, 9, 2, '#c9c0aa');
+  p.fill(0, oy + 118, ROOM_W, ROOM_H - 118, '#3d3a36');
+  for (let x = 4; x < ROOM_W; x += 18) p.fill(x, oy + 146, 9, 2, '#c9c0aa');
 
   // Pedestrians.
   for (const walker of w.walkers) {
@@ -328,7 +330,7 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
 
   if (night) {
     p.setAlpha(0.28);
-    p.fill(0, oy, ROOM_W, 150, '#0a1024');
+    p.fill(0, oy, ROOM_W, ROOM_H, '#0a1024');
     p.setAlpha(1);
   }
 }

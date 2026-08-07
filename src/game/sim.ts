@@ -207,7 +207,7 @@ function updateStreet(ctx: SimContext): void {
       id: w.nextId++,
       seed: rng.int(1, 9999),
       x: dir === 1 ? -10 : ROOM_W + 10,
-      y: 118 + rng.int(0, 8),
+      y: 124 + rng.int(0, 10),
       dir,
       decided: false,
       anim: 0,
@@ -374,7 +374,7 @@ function leave(c: Customer, w: World): void {
   releaseSeat(w, c);
   c.state = 'leave';
   c.tx = DOOR.x;
-  c.ty = DOOR.y + 12;
+  c.ty = DOOR.y + 10;
   if (c.mood >= 0) {
     c.bubble = c.mood;
     c.bubbleTimer = 90;
@@ -491,11 +491,11 @@ function staffStation(type: number, rng: Rng): { x: number; y: number } {
     case 1:
       return { x: 90, y: KITCHEN_Y + 20 };
     case 3:
-      return { x: 60, y: 120 };
+      return { x: 60, y: 132 };
     case 4:
-      return { x: 145, y: 128 };
+      return { x: 145, y: 138 };
     default:
-      return { x: 100, y: 130 };
+      return { x: 100, y: 140 };
   }
 }
 
@@ -517,7 +517,7 @@ function updateStaff(ctx: SimContext): void {
 
     if (st.state === 'leave') {
       st.tx = DOOR.x;
-      st.ty = DOOR.y + 12;
+      st.ty = DOOR.y + 10;
       if (step(st, speed)) w.staff.splice(i, 1);
       continue;
     }
@@ -837,7 +837,7 @@ function updateCleaner(ctx: SimContext, st: Staff, speed: number): void {
   if (st.state === 'idle') {
     if (s.litter.length === 0) {
       st.tx = 60;
-      st.ty = 120;
+      st.ty = 132;
       step(st, speed);
       return;
     }
@@ -859,7 +859,7 @@ function updateCleaner(ctx: SimContext, st: Staff, speed: number): void {
 function updatePatrol(_ctx: SimContext, st: Staff, speed: number, rng: Rng): void {
   if (step(st, speed)) {
     st.tx = 20 + rng.int(0, ROOM_W - 40);
-    st.ty = 112 + rng.int(0, 24);
+    st.ty = 118 + rng.int(0, 26);
   }
 }
 
