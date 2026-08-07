@@ -617,21 +617,34 @@ export class PlayScreen implements Screen {
     p.hLine(x, y, w, C.lineSoft);
     y += 3;
 
+    fieldLine(p, S.currentTax, `${100 - s.netPct}%`, x, y, w, C.tomato);
+    y += 9;
+    fieldLine(p, 'МНОЖИТЕЛЬ', `x${scaleOf(s)}`, x, y, w, C.plum);
+    y += 11;
+
+    // Everything below resets at midnight, so say so plainly.
+    p.text(`ЗА ДЕНЬ ${s.day + 1}`, x, y, C.orange);
+    y += 10;
+
+    const revenue = s.profits.pizza + s.profits.product + s.profits.machine + s.profits.delivery;
     const lines: Array<[string, string, string]> = [
-      [S.currentTax, `${100 - s.netPct}%`, C.tomato],
       [S.profitPizza, `${formatMoney(s.profits.pizza)}$`, C.gold],
       [S.profitGoods, `${formatMoney(s.profits.product)}$`, C.gold],
       [S.profitMachines, `${formatMoney(s.profits.machine)}$`, C.gold],
       [S.profitDelivery, `${formatMoney(s.profits.delivery)}$`, C.gold],
-      [S.salaries, `${formatMoney(dailySalary(s))}$`, C.tomato],
-      [S.advertising, `${formatMoney(dailyAdCost(s))}$`, C.tomato],
       ['ПРОДАНО ПИЦЦ', `${s.soldToday}`, C.ink],
-      ['МНОЖИТЕЛЬ', `x${scaleOf(s)}`, C.plum],
+      [S.salaries, `-${formatMoney(dailySalary(s))}$`, C.tomato],
+      [S.advertising, `-${formatMoney(dailyAdCost(s))}$`, C.tomato],
     ];
     for (const [label, value, color] of lines) {
       fieldLine(p, label, value, x, y, w, color);
       y += 9;
     }
+
+    p.hLine(x, y, w, C.lineSoft);
+    y += 3;
+    const net = revenue - dailySalary(s) - dailyAdCost(s);
+    fieldLine(p, 'ИТОГО', `${net >= 0 ? '+' : ''}${formatMoney(net)}$`, x, y, w, net >= 0 ? C.basil : C.tomato);
   }
 
   private drawTask(p: Painter, s: GameState): void {
