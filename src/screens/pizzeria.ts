@@ -68,14 +68,17 @@ function drawBubble(p: Painter, mood: number, x: number, y: number): void {
 export function drawInterior(p: Painter, s: GameState, w: World, oy: number): void {
   const x0 = 0;
 
-  // Floor.
-  p.fill(x0, oy, ROOM_W, ROOM_H, '#4a382a');
+  // Floor — cooler stone tiles so warm furniture and people read against it.
+  p.fill(x0, oy, ROOM_W, ROOM_H, '#3e3832');
   for (let ty = 0; ty < ROOM_H; ty += 8) {
     for (let tx = 0; tx < ROOM_W; tx += 8) {
       const alt = ((tx / 8 + ty / 8) | 0) % 2 === 0;
-      p.fill(x0 + tx, oy + ty, 8, 8, alt ? '#54402f' : '#4a382a');
+      p.fill(x0 + tx, oy + ty, 8, 8, alt ? '#6a6256' : '#4a443c');
     }
   }
+  // Fine grout lines between tiles.
+  for (let ty = 0; ty <= ROOM_H; ty += 8) p.hLine(x0, oy + ty, ROOM_W, '#2e2a26');
+  for (let tx = 0; tx <= ROOM_W; tx += 8) p.vLine(x0 + tx, oy, ROOM_H, '#2e2a26');
 
   // Back wall and kitchen band.
   p.gradientV(x0, oy, ROOM_W, KITCHEN_Y, '#6b4a30', '#573b26');
