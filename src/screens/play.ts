@@ -75,6 +75,8 @@ import { ConfirmScreen, EndingScreen, HelpScreen, MenuScreen, saveSession } from
 import { drawExterior, drawInterior } from './pizzeria.ts';
 
 const TAB_COUNT = 11;
+/** The pizzeria view — the only screen on which the clock advances. */
+const TAB_PIZZERIA = 0;
 const TAB_H = 16;
 const TAB_TOP = TOP_BAR_H + 1;
 
@@ -174,6 +176,11 @@ export class PlayScreen implements Screen {
       return;
     }
 
+    if (!this.timeRunning(s)) {
+      this.accumulator = 0;
+      return;
+    }
+
     // Fixed 60 Hz simulation step so speeds behave the same on any display.
     this.accumulator += Math.min(dt, 100);
     const stepMs = 1000 / 60;
@@ -186,6 +193,16 @@ export class PlayScreen implements Screen {
       }
       if (s.ending) break;
     }
+  }
+
+  /**
+   * The original only advanced the clock from the pizzeria screen — the tick loop
+   * was reached from that one branch of the screen dispatcher, so every menu
+   * froze the simulation. Keeping that means shopping, hiring and re-pricing cost
+   * no game time, which is what makes the short missions manageable.
+   */
+  private timeRunning(s: GameState): boolean {
+    return this.tab === TAB_PIZZERIA && s.speed > 0;
   }
 
   // ------------------------------------------------------------------ draw
@@ -202,7 +219,10 @@ export class PlayScreen implements Screen {
     this.drawTab(app, p, s);
     p.popClip();
 
-    this.drawTabStrip(p, s);
+    // While the clock is stopped because the player is off in a menu, nudge them
+    // back to the pizzeria tab with a slow blink.
+    const nudge = s.speed > 0 && this.tab !== TAB_PIZZERIA && Math.floor(app.clock / 500) % 2 === 0;
+    this.drawTabStrip(p, s, nudge);
     this.drawSoftkeys(p, s);
 
     if (this.message) dialog(p, this.message);
@@ -212,10 +232,11 @@ export class PlayScreen implements Screen {
     p.gradientV(0, 0, SCREEN_W, TOP_BAR_H, C.panelHi, C.panel);
     p.hLine(0, TOP_BAR_H - 1, SCREEN_W, C.line);
 
-    p.text(clockOf(s), 3, 3, C.ink);
+    const running = this.timeRunning(s);
+    p.text(clockOf(s), 3, 3, running ? C.ink : C.inkDim);
 
-    // Speed: three pips, or a pause bar when the clock is stopped.
-    if (s.speed === 0) {
+    // Speed: three pips while the clock runs, a pause bar while it is stopped.
+    if (!running) {
       p.fill(29, 4, 2, 5, C.tomato);
       p.fill(33, 4, 2, 5, C.tomato);
     } else {
@@ -242,7 +263,7 @@ export class PlayScreen implements Screen {
     if (shortOfBills) p.text('!', SCREEN_W - 3 - p.measure(`${formatMoney(s.money)}$`) - 5, 3, C.tomato);
   }
 
-  private drawTabStrip(p: Painter, s: GameState): void {
+  private drawTabStrip(p: Painter, s: GameState, nudge: boolean): void {
     const x = SCREEN_W - TAB_STRIP_W;
     p.fill(x, TOP_BAR_H, TAB_STRIP_W, SCREEN_H - TOP_BAR_H - BOTTOM_BAR_H, C.bar);
     p.vLine(x, TOP_BAR_H, SCREEN_H - TOP_BAR_H - BOTTOM_BAR_H, C.line);
@@ -260,6 +281,7 @@ export class PlayScreen implements Screen {
         p.fill(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, '#5a2118');
       }
       if (this.tabFocus && active) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
+      if (nudge && i === TAB_PIZZERIA) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
 
       const icon = icons[i];
       if (icon) {
