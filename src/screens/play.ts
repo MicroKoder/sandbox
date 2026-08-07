@@ -14,7 +14,7 @@ import {
   UPGRADES,
   recipePrice,
 } from '../data/content.ts';
-import { CONFIRM, EMPTY, HELP, S } from '../data/strings.ts';
+import { CONFIRM, EMPTY, HELP_BOOK, S, helpPageForTab } from '../data/strings.ts';
 import {
   SPEED_TICKS,
   adjustPizzaPrice,
@@ -92,20 +92,6 @@ const TAB_TITLES = [
   S.tabUpgrades,
   S.tabMachines,
   S.tabStaff,
-];
-
-const TAB_HELP = [
-  HELP.pizzeria,
-  HELP.prices,
-  HELP.recipes,
-  HELP.ingredients,
-  HELP.products,
-  HELP.ads,
-  HELP.stats,
-  HELP.map,
-  HELP.upgrades,
-  HELP.machines,
-  HELP.staff,
 ];
 
 const SUB_TABS: Array<string[]> = [
@@ -784,7 +770,7 @@ export class PlayScreen implements Screen {
         app.cue('select');
         return;
       case 'hint':
-        app.push(new HelpScreen(TAB_HELP[this.tab] ?? HELP.general));
+        app.push(new HelpScreen(HELP_BOOK, helpPageForTab(this.tab)));
         return;
       case 'menu':
         this.openMenu(app);
@@ -1149,7 +1135,7 @@ class PauseScreen implements Screen {
           app.persistSettings();
           break;
         case 3:
-          app.push(new HelpScreen(HELP.general));
+          app.push(new HelpScreen(HELP_BOOK));
           break;
         default:
           app.pop();

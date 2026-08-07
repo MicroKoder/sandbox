@@ -4,7 +4,7 @@ import { C } from '../core/palette.ts';
 import type { Painter } from '../core/painter.ts';
 import { FULL, SCREEN_H, SCREEN_W } from '../core/screen.ts';
 import { MISSIONS, MISSION_COUNT } from '../data/missions.ts';
-import { ENDING, HELP, S } from '../data/strings.ts';
+import { ENDING, HELP_BOOK, S, type HelpPage } from '../data/strings.ts';
 import { createGame, missionOf, type Difficulty, type GameState } from '../game/state.ts';
 import type { Key } from '../ui/input.ts';
 import {
@@ -78,7 +78,7 @@ export class MenuScreen implements Screen {
     },
     { label: S.records, action: (app) => app.push(new RecordsScreen()) },
     { label: S.settings, action: (app) => app.push(new SettingsScreen()) },
-    { label: S.help, action: (app) => app.push(new HelpScreen(HELP.general)) },
+    { label: S.help, action: (app) => app.push(new HelpScreen(HELP_BOOK)) },
     { label: S.about, action: (app) => app.push(new AboutScreen()) },
   ];
 
@@ -234,35 +234,79 @@ export class AboutScreen implements Screen {
 
 // --------------------------------------------------------------------- help
 
+/**
+ * The paged help book. The original had the same shape: a browser over a fixed
+ * list of chapters, opened either from the main menu or with the hint key on a
+ * gameplay screen, in which case it opens at that screen's chapter.
+ */
 export class HelpScreen implements Screen {
   private scroll = 0;
   private height = 0;
+  private page: number;
 
-  constructor(private readonly body: string) {}
+  constructor(
+    private readonly pages: HelpPage[],
+    startPage = 0,
+  ) {
+    this.page = Math.max(0, Math.min(startPage, pages.length - 1));
+  }
+
+  private get current(): HelpPage {
+    return this.pages[this.page];
+  }
 
   draw(_app: App, p: Painter): void {
     p.clear(C.bg);
     header(p, S.help);
-    this.height = scrollText(p, this.body, 6, FULL.y + 4, SCREEN_W - 16, FULL.h - 6, this.scroll);
+
+    const chapter = this.current;
+    const titleY = FULL.y;
+    p.gradientV(0, titleY, SCREEN_W, 11, C.panelHi, C.panel);
+    p.text('←', 3, titleY + 2, this.page > 0 ? C.gold : C.inkFaint);
+    p.text('→', SCREEN_W - 4, titleY + 2, this.page < this.pages.length - 1 ? C.gold : C.inkFaint, 'right');
+    p.textClipped(chapter.title, 13, titleY + 2, SCREEN_W - 28, C.gold);
+    p.hLine(0, titleY + 11, SCREEN_W, C.line);
+
+    const bodyY = titleY + 14;
+    const bodyH = FULL.h - 14;
+    this.height = scrollText(p, chapter.text, 6, bodyY, SCREEN_W - 16, bodyH, this.scroll);
     scrollbar(
       p,
-      { x: SCREEN_W - 4, y: FULL.y + 4, w: 2, h: FULL.h - 6 },
+      { x: SCREEN_W - 4, y: bodyY, w: 2, h: bodyH },
       this.scroll,
-      FULL.h - 6,
-      Math.max(this.height, FULL.h),
+      bodyH,
+      Math.max(this.height, bodyH),
     );
-    softkeys(p, S.back, undefined, '↑↓');
+
+    softkeys(p, S.back, `${this.page + 1}/${this.pages.length}`, '↑↓ ←→');
   }
 
-  click(app: App, _x: number, y: number): void {
-    if (y >= SCREEN_H - 13) app.pop();
-    else this.key(app, y > SCREEN_H / 2 ? 'down' : 'up');
+  click(app: App, x: number, y: number): void {
+    if (y >= SCREEN_H - 13) {
+      app.pop();
+      return;
+    }
+    if (y < FULL.y + 11) {
+      this.turn(x < SCREEN_W / 2 ? -1 : 1);
+      return;
+    }
+    this.key(app, y > SCREEN_H / 2 ? 'down' : 'up');
+  }
+
+  private turn(delta: number): void {
+    const next = this.page + delta;
+    if (next < 0 || next >= this.pages.length) return;
+    this.page = next;
+    this.scroll = 0;
   }
 
   key(app: App, key: Key): void {
-    const max = Math.max(0, this.height - (FULL.h - 10));
+    const bodyH = FULL.h - 14;
+    const max = Math.max(0, this.height - bodyH + 6);
     if (key === 'down') this.scroll = Math.min(max, this.scroll + 9);
     else if (key === 'up') this.scroll = Math.max(0, this.scroll - 9);
+    else if (key === 'left' || key === 'prevTab') this.turn(-1);
+    else if (key === 'right' || key === 'nextTab') this.turn(1);
     else if (key === 'back' || key === 'select' || key === 'hint') app.pop();
   }
 }
