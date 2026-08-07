@@ -1,4 +1,4 @@
-import { TABLE_SLOTS, SEATS_PER_TABLE } from '../data/content';
+import { TABLE_SLOTS, SEATS_PER_TABLE } from '../data/content.ts';
 
 /** Interior view is drawn in its own 158x150 pixel space. */
 export const ROOM_W = 158;
@@ -140,11 +140,21 @@ export function step(e: { x: number; y: number; tx: number; ty: number; facing: 
   return false;
 }
 
+/**
+ * Picks a free seat, preferring a table that is already partly occupied so the
+ * waiter can serve several guests in one round trip.
+ */
 export function freeSeat(world: World, rngInt: (a: number, b: number) => number): { table: number; seat: number } | null {
-  const free: Array<{ table: number; seat: number }> = [];
-  world.seats.forEach((row, t) => row.forEach((taken, s) => {
-    if (!taken) free.push({ table: t, seat: s });
-  }));
-  if (free.length === 0) return null;
-  return free[rngInt(0, free.length - 1)];
+  const shared: Array<{ table: number; seat: number }> = [];
+  const empty: Array<{ table: number; seat: number }> = [];
+  world.seats.forEach((row, t) => {
+    const occupied = row.some(Boolean);
+    row.forEach((taken, s) => {
+      if (taken) return;
+      (occupied ? shared : empty).push({ table: t, seat: s });
+    });
+  });
+  const pool = shared.length > 0 ? shared : empty;
+  if (pool.length === 0) return null;
+  return pool[rngInt(0, pool.length - 1)];
 }

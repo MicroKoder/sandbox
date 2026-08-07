@@ -1,12 +1,12 @@
-import type { App, Screen } from '../app/app';
-import { clearSave, hasSave, isUnlocked, readSave, recordWin, writeSave } from '../app/profile';
-import { C } from '../core/palette';
-import type { Painter } from '../core/painter';
-import { FULL, SCREEN_H, SCREEN_W } from '../core/screen';
-import { MISSIONS, MISSION_COUNT } from '../data/missions';
-import { ENDING, HELP, S } from '../data/strings';
-import { createGame, missionOf, type Difficulty, type GameState } from '../game/state';
-import type { Key } from '../ui/input';
+import type { App, Screen } from '../app/app.ts';
+import { clearSave, hasSave, isUnlocked, readSave, recordWin, writeSave } from '../app/profile.ts';
+import { C } from '../core/palette.ts';
+import type { Painter } from '../core/painter.ts';
+import { FULL, SCREEN_H, SCREEN_W } from '../core/screen.ts';
+import { MISSIONS, MISSION_COUNT } from '../data/missions.ts';
+import { ENDING, HELP, S } from '../data/strings.ts';
+import { createGame, missionOf, type Difficulty, type GameState } from '../game/state.ts';
+import type { Key } from '../ui/input.ts';
 import {
   dialog,
   fieldLine,
@@ -17,9 +17,9 @@ import {
   row,
   scrollbar,
   softkeys,
-} from '../ui/widgets';
-import { drawLogoMark, menuBackground, scrollText } from './common';
-import { PlayScreen } from './play';
+} from '../ui/widgets.ts';
+import { drawLogoMark, menuBackground, scrollText } from './common.ts';
+import { PlayScreen } from './play.ts';
 
 // ------------------------------------------------------------------- splash
 

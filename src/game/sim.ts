@@ -1,5 +1,5 @@
-import { PIZZAS, PRODUCTS, MACHINES, UPGRADES } from '../data/content';
-import type { Rng } from './rng';
+import { PIZZAS, PRODUCTS, MACHINES, UPGRADES } from '../data/content.ts';
+import type { Rng } from './rng.ts';
 import {
   createWorld,
   freeSeat,
@@ -12,9 +12,10 @@ import {
   ROOM_W,
   TABLES,
   type Customer,
+  type CustomerState,
   type Staff,
   type World,
-} from './entities';
+} from './entities.ts';
 import {
   TICKS_PER_DAY,
   TICK_FIRST_CUSTOMER,
@@ -34,7 +35,7 @@ import {
   scaleOf,
   staffStat,
   type GameState,
-} from './state';
+} from './state.ts';
 
 /**
  * The simulation, ported from the original's per-tick loop.
@@ -66,8 +67,22 @@ export const DEVIATIONS = {
   adsAffectFootfall: true,
 } as const;
 
-const CUSTOMER_SPEED = 0.32;
-const STAFF_SPEED = 0.45;
+const CUSTOMER_SPEED = 0.75;
+/**
+ * How long a seated guest will wait, in ticks. The original used 300 (half a
+ * game hour) which no single waiter could ever meet, so almost every visitor
+ * left angry; an hour of patience makes a well-staffed pizzeria viable while a
+ * badly-staffed one still bleeds rating.
+ */
+const PATIENCE = 600;
+/** Chance of a drunken scene when alcohol is sold and nobody is on the door. */
+const UNGUARDED_BRAWL_CHANCE = 12;
+/**
+ * Staff move a good deal faster than customers. The original moved everyone on a
+ * coarse tile grid; here the speed is tuned so that one waiter can actually keep
+ * up with a full room, which is what the rating economy assumes.
+ */
+const STAFF_SPEED = 2.0;
 
 /** Mood indices, matching MOODS in data/strings.ts. */
 export const MOOD = {
@@ -83,6 +98,16 @@ export const MOOD = {
 
 /** Rating delta per mood, before scaling (C.java:5186-5217). */
 const MOOD_RATING = [61, -10, -3, -5, -60, -80, -50, -15];
+
+/**
+ * The original multiplied every *negative* mood by the rivals' combined strength
+ * but left a satisfied guest at a flat +61. On the late missions that weight
+ * reaches 21, so a single sold-out drink (-3 x 21 = -63) outweighed a perfectly
+ * served guest and the mission was lost on day one no matter how well it was
+ * played. Letting the reward scale with the same weight keeps the "rivals get
+ * nastier" intent while leaving a well-run pizzeria able to climb.
+ */
+const happyReward = (weight: number): number => MOOD_RATING[0] + 6 * weight;
 
 export interface SimContext {
   state: GameState;
@@ -231,7 +256,7 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
   const scare = litter > 0 ? litter * litter : 0;
   if (scare > 0 && rng.chance(scare)) {
     customer.mood = MOOD.scared;
-    leave(customer, s);
+    leave(customer, w);
     w.customers.push(customer);
     return true;
   }
@@ -240,12 +265,12 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
     // Wants a table.
     if (!hasTables(s)) {
       customer.mood = MOOD.unserved;
-      leave(customer, s);
+      leave(customer, w);
     } else {
       const seat = freeSeat(w, (a, b) => rng.int(a, b));
       if (!seat) {
         customer.mood = MOOD.unserved;
-        leave(customer, s);
+        leave(customer, w);
       } else {
         w.seats[seat.table][seat.seat] = true;
         customer.table = seat.table;
@@ -260,7 +285,7 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
     const free = installedMachines(s).filter((i) => w.machineBusy[i] <= 0);
     if (free.length === 0) {
       customer.mood = MOOD.unserved;
-      leave(customer, s);
+      leave(customer, w);
     } else {
       const m = free[rng.int(0, free.length - 1)];
       customer.machine = m;
@@ -278,7 +303,7 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
 // ----------------------------------------------------------------- customers
 
 function updateCustomers(ctx: SimContext): void {
-  const { state: s, world: w } = ctx;
+  const { world: w } = ctx;
 
   for (let i = w.customers.length - 1; i >= 0; i--) {
     const c = w.customers[i];
@@ -292,7 +317,7 @@ function updateCustomers(ctx: SimContext): void {
             c.timer = 20;
           } else {
             c.state = 'wait';
-            c.timer = 300;
+            c.timer = PATIENCE;
           }
         }
         dropLitter(ctx, c);
@@ -301,32 +326,31 @@ function updateCustomers(ctx: SimContext): void {
       case 'wait': {
         if (--c.timer <= 0) {
           c.mood = MOOD.unserved;
-          leave(c, s);
+          leave(c, w);
         }
         break;
       }
       case 'ordered': {
         if (--c.timer <= 0) {
           c.mood = MOOD.unserved;
-          leave(c, s);
+          leave(c, w);
         }
         break;
       }
       case 'served': {
-        if (--c.timer <= 0) leave(c, s);
+        if (--c.timer <= 0) leave(c, w);
         break;
       }
       case 'machine': {
         if (--c.timer <= 0) {
           payMachine(ctx, c.machine);
           c.mood = -1;
-          leave(c, s);
+          leave(c, w);
         }
         break;
       }
       case 'leave': {
         if (step(c, CUSTOMER_SPEED)) {
-          releaseSeat(w, c);
           applyMood(ctx, c);
           w.customers.splice(i, 1);
           continue;
@@ -338,7 +362,8 @@ function updateCustomers(ctx: SimContext): void {
   }
 }
 
-function leave(c: Customer, _s: GameState): void {
+function leave(c: Customer, w: World): void {
+  releaseSeat(w, c);
   c.state = 'leave';
   c.tx = DOOR.x;
   c.ty = DOOR.y + 12;
@@ -365,9 +390,11 @@ function applyMood(ctx: SimContext, c: Customer): void {
   const { state: s, rng } = ctx;
   if (c.mood < 0) return;
 
+  s.moods[c.mood] = (s.moods[c.mood] ?? 0) + 1;
+
   const mission = missionOf(s);
   const weight = mission.rival1Strength + mission.rival2Strength + s.difficulty;
-  const raw = c.mood === MOOD.happy ? MOOD_RATING[0] : MOOD_RATING[c.mood] * weight;
+  const raw = c.mood === MOOD.happy ? happyReward(weight) : MOOD_RATING[c.mood] * weight;
   const anyRival = s.rivalRating[0] > 0 || s.rivalRating[1] > 0;
   if (!anyRival) return;
 
@@ -424,6 +451,9 @@ function spawnStaff(ctx: SimContext): void {
   w.staff = [];
   for (const c of s.candidates) {
     if (!c.hired) continue;
+    // Drivers are out on the road all day and never appear in the dining room,
+    // exactly as in the original.
+    if (c.type === 2) continue;
     const home = staffStation(c.type, rng);
     w.staff.push({
       kind: 'staff',
@@ -466,7 +496,7 @@ function updateStaff(ctx: SimContext): void {
 
   for (let i = w.staff.length - 1; i >= 0; i--) {
     const st = w.staff[i];
-    const speed = STAFF_SPEED + st.speed * 0.04;
+    const speed = STAFF_SPEED + st.speed * 0.18;
 
     if (st.state === 'arrive') {
       if (st.timer > 0) {
@@ -555,60 +585,113 @@ export function bake(ctx: SimContext): void {
 
 // -------------------------------------------------------------------- waiter
 
+/**
+ * A waiter works a round: collect orders from every occupied table, make one trip
+ * to the kitchen, then deliver to each table in turn. Batching this way is what
+ * lets a single waiter keep up with a full room, which the rating economy
+ * assumes — the original walked one guest at a time and could never catch up.
+ */
 function updateWaiter(ctx: SimContext, st: Staff, speed: number): void {
   const { world: w } = ctx;
 
+  const tableSpot = (table: number): { x: number; y: number } => ({
+    x: TABLES[table].x,
+    y: TABLES[table].y + 11,
+  });
+
+  /** Nearest table holding at least one guest in `want`, ignoring `skip`. */
+  const nearestTable = (want: 'wait' | 'ordered', skip: number): number => {
+    let best = -1;
+    let bestDist = Infinity;
+    for (let t = 0; t < TABLES.length; t++) {
+      if (t === skip) continue;
+      if (!w.customers.some((c) => c.table === t && c.state === want)) continue;
+      const spot = tableSpot(t);
+      const d = Math.hypot(spot.x - st.x, spot.y - st.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = t;
+      }
+    }
+    return best;
+  };
+
+  const goTo = (table: number, state: Staff['state']): void => {
+    st.target = table;
+    const spot = tableSpot(table);
+    st.tx = spot.x;
+    st.ty = spot.y;
+    st.state = state;
+  };
+
   if (st.state === 'idle') {
-    const target = w.customers.find((c) => c.state === 'wait') ??
-      w.customers.find((c) => c.state === 'ordered' && c.timer < 260);
-    if (!target) {
-      st.tx = 90;
-      st.ty = KITCHEN_Y + 20;
-      step(st, speed);
+    if (st.carrying) {
+      const table = nearestTable('ordered', -1);
+      if (table >= 0) {
+        goTo(table, 'toServe');
+        return;
+      }
+      st.carrying = false;
+    }
+
+    const waiting = nearestTable('wait', -1);
+    if (waiting >= 0) {
+      goTo(waiting, 'toTable');
       return;
     }
-    st.target = target.id;
-    const p = seatPos(target.table, target.seat);
-    st.tx = p.x + (target.seat === 0 ? -10 : 10);
-    st.ty = p.y + 8;
-    st.state = target.state === 'wait' ? 'toTable' : 'toKitchen';
-    return;
-  }
-
-  const target = w.customers.find((c) => c.id === st.target);
-  if (!target) {
-    st.state = 'idle';
+    if (w.customers.some((c) => c.state === 'ordered')) {
+      st.tx = 96;
+      st.ty = KITCHEN_Y + 14;
+      st.state = 'toKitchen';
+      return;
+    }
+    st.tx = 90;
+    st.ty = KITCHEN_Y + 20;
+    step(st, speed);
     return;
   }
 
   if (st.state === 'toTable') {
-    if (step(st, speed)) {
-      takeOrder(ctx, target);
-      st.state = 'idle';
-      st.timer = 10;
+    if (!step(st, speed)) return;
+    const table = st.target;
+    let took = 0;
+    for (const c of w.customers) {
+      if (c.table !== table) continue;
+      if ((c.state as CustomerState) !== 'wait') continue;
+      takeOrder(ctx, c);
+      if ((c.state as CustomerState) === 'ordered') took++;
     }
+    if (took === 0) {
+      // Nothing in the oven for this table — pause instead of looping on it.
+      const other = nearestTable('wait', table);
+      if (other >= 0) {
+        goTo(other, 'toTable');
+      } else {
+        st.state = 'busy';
+        st.timer = 20;
+      }
+      return;
+    }
+    const another = nearestTable('wait', table);
+    if (another >= 0) goTo(another, 'toTable');
+    else st.state = 'idle';
     return;
   }
 
   if (st.state === 'toKitchen') {
-    st.tx = 96;
-    st.ty = KITCHEN_Y + 14;
-    if (step(st, speed)) {
-      st.carrying = true;
-      const p = seatPos(target.table, target.seat);
-      st.tx = p.x + (target.seat === 0 ? -10 : 10);
-      st.ty = p.y + 8;
-      st.state = 'toServe';
-    }
+    if (!step(st, speed)) return;
+    st.carrying = true;
+    st.state = 'idle';
     return;
   }
 
   if (st.state === 'toServe') {
-    if (step(st, speed)) {
-      st.carrying = false;
-      serve(ctx, target);
-      st.state = 'idle';
+    if (!step(st, speed)) return;
+    const table = st.target;
+    for (const c of w.customers) {
+      if (c.table === table && (c.state as CustomerState) === 'ordered') serve(ctx, c);
     }
+    st.state = 'idle';
   }
 }
 
@@ -626,11 +709,24 @@ export function productAcceptance(price: number, cost: number): number {
   return 200 - 20 * k * k;
 }
 
-function takeOrder(ctx: SimContext, c: Customer): void {
+/**
+ * The original drew a recipe uniformly and made the guest keep waiting when that
+ * one happened to be sold out. Here the waiter suggests something that is
+ * actually in the oven — with several recipes on the menu that is what a real
+ * waiter would do, and it stops a single sold-out line from stalling a table.
+ */
+function pickAvailable(ctx: SimContext, menu: number[]): number {
   const { state: s, rng } = ctx;
+  const inStock = menu.filter((r) => s.pizzaStock[r] > 0);
+  const pool = inStock.length > 0 ? inStock : menu;
+  return pool[rng.int(0, pool.length - 1)];
+}
+
+function takeOrder(ctx: SimContext, c: Customer): void {
+  const { state: s, world: w, rng } = ctx;
   const menu = ownedRecipes(s);
   if (menu.length === 0) return;
-  const choice = menu[rng.int(0, menu.length - 1)];
+  const choice = pickAvailable(ctx, menu);
   if (s.pizzaStock[choice] <= 0) {
     c.timer = Math.max(c.timer, 30);
     return;
@@ -638,24 +734,24 @@ function takeOrder(ctx: SimContext, c: Customer): void {
   const p = pizzaAcceptance(s.pizzaPrice[choice], PIZZAS[choice].cost);
   if (p >= 99 || rng.chance(p)) {
     c.state = 'ordered';
-    c.timer = 300;
+    c.timer = PATIENCE;
     c.bubble = -1;
   } else {
     c.mood = MOOD.tooExpensive;
-    leave(c, s);
+    leave(c, w);
   }
 }
 
 /** The whole basket: one pizza order plus a run of add-on products (C.java:5411). */
 function serve(ctx: SimContext, c: Customer): void {
-  const { state: s, rng } = ctx;
+  const { state: s, world: w, rng } = ctx;
   const menu = ownedRecipes(s);
   if (menu.length === 0) return;
-  const choice = menu[rng.int(0, menu.length - 1)];
+  const choice = pickAvailable(ctx, menu);
 
   if (s.pizzaStock[choice] <= 0) {
     c.mood = MOOD.outOfStock;
-    leave(c, s);
+    leave(c, w);
     return;
   }
 
@@ -706,10 +802,13 @@ function serve(ctx: SimContext, c: Customer): void {
     if (alcohol) {
       const guards = hiredOf(s, 4);
       const guardPower = staffStat(s, 4, 'skill') + staffStat(s, 4, 'speed');
+      // Original: the roll only happened when a guard was on duty, so hiring
+      // nobody meant no brawls and hiring a weak guard caused them. Here an
+      // unguarded room carries a modest base risk that a competent guard removes.
       const brawl = DEVIATIONS.guardsReduceBrawls
         ? guards.length > 0
-          ? 25 - (3 * guardPower) / guards.length
-          : 25
+          ? UNGUARDED_BRAWL_CHANCE - (3 * guardPower) / guards.length
+          : UNGUARDED_BRAWL_CHANCE
         : guards.length > 0
           ? 25 - (3 * guardPower) / guards.length
           : 0;
@@ -805,6 +904,7 @@ function endDay(ctx: SimContext): void {
   s.litter = [];
   s.profits = { pizza: 0, product: 0, machine: 0, delivery: 0 };
   s.soldToday = 0;
+  s.moods = new Array(8).fill(0);
   s.deliveryTimer = rng.int(100, 200);
 
   evaluate(s);

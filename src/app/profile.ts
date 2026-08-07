@@ -1,5 +1,5 @@
-import { MISSION_COUNT } from '../data/missions';
-import type { Difficulty, GameState } from '../game/state';
+import { MISSION_COUNT } from '../data/missions.ts';
+import type { Difficulty, GameState } from '../game/state.ts';
 
 const SETTINGS_KEY = 'pizza-magnate/settings';
 const RECORDS_KEY = 'pizza-magnate/records';

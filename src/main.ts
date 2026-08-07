@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 
-import { App } from './app/app';
-import { SoundBank } from './app/sound';
-import { Painter } from './core/painter';
-import { SCREEN_H, SCREEN_W } from './core/screen';
-import { SplashScreen } from './screens/menu';
-import { Input } from './ui/input';
+import { App } from './app/app.ts';
+import { SoundBank } from './app/sound.ts';
+import { Painter } from './core/painter.ts';
+import { SCREEN_H, SCREEN_W } from './core/screen.ts';
+import { SplashScreen } from './screens/menu.ts';
+import { Input } from './ui/input.ts';
 
 const TEXTURE_KEY = 'screen';
 

@@ -1,7 +1,7 @@
-import { FONT_HEIGHT } from '../core/font';
-import { C } from '../core/palette';
-import type { Painter, Rect } from '../core/painter';
-import { SCREEN_W, SCREEN_H, TOP_BAR_H, BOTTOM_BAR_H } from '../core/screen';
+import { FONT_HEIGHT } from '../core/font.ts';
+import { C } from '../core/palette.ts';
+import type { Painter, Rect } from '../core/painter.ts';
+import { SCREEN_W, SCREEN_H, TOP_BAR_H, BOTTOM_BAR_H } from '../core/screen.ts';
 
 /** Title strip drawn at the top of menu-style screens. */
 export function header(p: Painter, title: string): void {

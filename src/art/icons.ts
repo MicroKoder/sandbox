@@ -1,4 +1,4 @@
-import { sprite, type Palette } from './pixel';
+import { sprite, type Palette } from './pixel.ts';
 
 /**
  * Icon set: tab-strip glyphs, visitor mood faces and item thumbnails.

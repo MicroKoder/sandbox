@@ -1,6 +1,6 @@
-import { C } from '../core/palette';
-import type { Painter } from '../core/painter';
-import { SCREEN_H, SCREEN_W } from '../core/screen';
+import { C } from '../core/palette.ts';
+import type { Painter } from '../core/painter.ts';
+import { SCREEN_H, SCREEN_W } from '../core/screen.ts';
 
 /** Warm checkered backdrop used behind the menus. */
 export function menuBackground(p: Painter, clock: number): void {

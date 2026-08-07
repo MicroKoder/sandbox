@@ -1,5 +1,5 @@
-import { FONT_HEIGHT, FONT_TRACKING, FONT_SPACE, glyphOf, measure, wrap } from './font';
-import { C } from './palette';
+import { FONT_HEIGHT, FONT_TRACKING, FONT_SPACE, glyphOf, measure, wrap } from './font.ts';
+import { C } from './palette.ts';
 
 export type Align = 'left' | 'center' | 'right';
 

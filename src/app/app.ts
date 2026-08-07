@@ -1,10 +1,10 @@
-import type { Painter } from '../core/painter';
-import { Rng } from '../game/rng';
-import type { GameState } from '../game/state';
-import { createContext, type SimContext } from '../game/sim';
-import type { Input, Key } from '../ui/input';
-import { loadRecords, loadSettings, saveSettings, type Records, type Settings } from './profile';
-import type { Cue, SoundBank } from './sound';
+import type { Painter } from '../core/painter.ts';
+import { Rng } from '../game/rng.ts';
+import type { GameState } from '../game/state.ts';
+import { createContext, type SimContext } from '../game/sim.ts';
+import type { Input, Key } from '../ui/input.ts';
+import { loadRecords, loadSettings, saveSettings, type Records, type Settings } from './profile.ts';
+import type { Cue, SoundBank } from './sound.ts';
 
 export interface Screen {
   /** Called once when the screen becomes the active one. */

@@ -1,4 +1,4 @@
-import { drawRows, makeCanvas, ctxOf, type Palette } from './pixel';
+import { drawRows, makeCanvas, ctxOf, type Palette } from './pixel.ts';
 
 /**
  * Procedural 9x19 character sprites for visitors and staff.

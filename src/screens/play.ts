@@ -1,8 +1,8 @@
-import type { App, Screen } from '../app/app';
-import { getTabIcons, pizzaSprite, getProductIcons, getMachineIcons, TAB_ICON_H, TAB_ICON_W } from '../art/icons';
-import { C } from '../core/palette';
-import type { Painter, Rect } from '../core/painter';
-import { BOTTOM_BAR_H, SCREEN_H, SCREEN_W, TAB_STRIP_W, TOP_BAR_H } from '../core/screen';
+import type { App, Screen } from '../app/app.ts';
+import { getTabIcons, pizzaSprite, getProductIcons, getMachineIcons, TAB_ICON_H, TAB_ICON_W } from '../art/icons.ts';
+import { C } from '../core/palette.ts';
+import type { Painter, Rect } from '../core/painter.ts';
+import { BOTTOM_BAR_H, SCREEN_H, SCREEN_W, TAB_STRIP_W, TOP_BAR_H } from '../core/screen.ts';
 import {
   ADS,
   INGREDIENTS,
@@ -13,8 +13,8 @@ import {
   STAFF_NAMES,
   UPGRADES,
   recipePrice,
-} from '../data/content';
-import { CONFIRM, EMPTY, HELP, S } from '../data/strings';
+} from '../data/content.ts';
+import { CONFIRM, EMPTY, HELP, S } from '../data/strings.ts';
 import {
   SPEED_TICKS,
   adjustPizzaPrice,
@@ -55,9 +55,9 @@ import {
   wageOf,
   type GameState,
   type Speed,
-} from '../game/state';
-import { tick, warnings } from '../game/sim';
-import type { Key } from '../ui/input';
+} from '../game/state.ts';
+import { tick, warnings } from '../game/sim.ts';
+import type { Key } from '../ui/input.ts';
 import {
   dialog,
   fieldLine,
@@ -69,9 +69,9 @@ import {
   scrollbar,
   softkeys,
   subTabs,
-} from '../ui/widgets';
-import { ConfirmScreen, EndingScreen, HelpScreen, MenuScreen, saveSession } from './menu';
-import { drawExterior, drawInterior } from './pizzeria';
+} from '../ui/widgets.ts';
+import { ConfirmScreen, EndingScreen, HelpScreen, MenuScreen, saveSession } from './menu.ts';
+import { drawExterior, drawInterior } from './pizzeria.ts';
 
 const TAB_COUNT = 11;
 const TAB_H = 16;

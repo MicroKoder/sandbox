@@ -1,6 +1,6 @@
-import { INGREDIENTS, PIZZAS, PRODUCTS, MACHINES, UPGRADES, ADS, STAFF_NAMES, UPGRADE_SECOND_FLOOR, UPGRADE_TABLES, recipePrice } from '../data/content';
-import { MISSIONS, type Mission } from '../data/missions';
-import { Rng } from './rng';
+import { INGREDIENTS, PIZZAS, PRODUCTS, MACHINES, UPGRADES, ADS, STAFF_NAMES, UPGRADE_SECOND_FLOOR, UPGRADE_TABLES, recipePrice } from '../data/content.ts';
+import { MISSIONS, type Mission } from '../data/missions.ts';
+import { Rng } from './rng.ts';
 
 // --------------------------------------------------------------- time model
 
@@ -90,6 +90,8 @@ export interface GameState {
   dayStartRating: number;
   /** Pizzas sold today — shown on the statistics screen. */
   soldToday: number;
+  /** How many visitors left with each of the eight moods today. */
+  moods: number[];
 
   ending: Ending;
   /** Litter dropped on the floor; each item is a position in interior pixels. */
@@ -285,6 +287,7 @@ export function createGame(opts: NewGameOptions, rng: Rng): GameState {
     dayStartMoney: m.money,
     dayStartRating: m.rating,
     soldToday: 0,
+    moods: new Array(8).fill(0),
 
     ending: null,
     litter: [],

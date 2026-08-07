@@ -1,16 +1,16 @@
-import { C, MOOD_COLORS } from '../core/palette';
-import type { Painter } from '../core/painter';
-import { getMoodIcons } from '../art/icons';
-import { drawPerson, visitorLook, STAFF_LOOKS, type Pose } from '../art/people';
-import { ctxOf, makeCanvas } from '../art/pixel';
-import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_W, TABLES, machinePos } from '../game/entities';
-import type { World } from '../game/entities';
+import { C, MOOD_COLORS } from '../core/palette.ts';
+import type { Painter } from '../core/painter.ts';
+import { getMoodIcons } from '../art/icons.ts';
+import { drawPerson, visitorLook, STAFF_LOOKS, type Pose } from '../art/people.ts';
+import { ctxOf, makeCanvas } from '../art/pixel.ts';
+import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_W, TABLES, machinePos } from '../game/entities.ts';
+import type { World } from '../game/entities.ts';
 import {
   TICKS_PER_HOUR,
   installedMachines,
   type GameState,
-} from '../game/state';
-import { UPGRADE_SECOND_FLOOR, UPGRADE_TABLES } from '../data/content';
+} from '../game/state.ts';
+import { UPGRADE_SECOND_FLOOR, UPGRADE_TABLES } from '../data/content.ts';
 
 /**
  * The two "ПИЦЦЕРИЯ" sub-views. Both are drawn straight into the shared 176x208
