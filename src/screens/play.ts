@@ -212,20 +212,23 @@ export class PlayScreen implements Screen {
     p.hLine(0, TOP_BAR_H - 1, SCREEN_W, C.line);
 
     p.text(clockOf(s), 3, 3, C.ink);
-    // Speed pips.
-    for (let i = 0; i < 3; i++) {
-      const on = s.speed > i;
-      p.fill(30 + i * 4, 4, 3, 5, on ? C.gold : C.panelLo);
+
+    // Speed: three pips, or a pause bar when the clock is stopped.
+    if (s.speed === 0) {
+      p.fill(29, 4, 2, 5, C.tomato);
+      p.fill(33, 4, 2, 5, C.tomato);
+    } else {
+      for (let i = 0; i < 3; i++) {
+        p.fill(29 + i * 4, 4, 3, 5, s.speed > i ? C.gold : C.panelLo);
+      }
     }
-    if (s.speed === 0) p.text('II', 30, 3, C.tomato);
+    p.vLine(42, 2, 8, C.lineSoft);
 
     p.text(`Д${s.day + 1}/${missionOf(s).days}`, 46, 3, C.inkDim);
+    p.vLine(70, 2, 8, C.lineSoft);
+    p.text(formatRating(s.rating), 74, 3, C.sky);
 
-    const money = `${formatMoney(s.money)}$`;
-    p.text(money, SCREEN_W - 3, 3, s.money < 0 ? C.tomato : C.money, 'right');
-
-    const ratingX = SCREEN_W - 6 - p.measure(money);
-    p.text(formatRating(s.rating), ratingX, 3, C.sky, 'right');
+    p.text(`${formatMoney(s.money)}$`, SCREEN_W - 3, 3, s.money < 0 ? C.tomato : C.money, 'right');
   }
 
   private drawTabStrip(p: Painter, s: GameState): void {
@@ -735,6 +738,12 @@ export class PlayScreen implements Screen {
       case 'soft1':
         this.cycleSub(app, s);
         return;
+      case 'prevTab':
+        this.switchTab(app, -1);
+        return;
+      case 'nextTab':
+        this.switchTab(app, 1);
+        return;
       default:
         break;
     }
@@ -754,6 +763,13 @@ export class PlayScreen implements Screen {
     }
 
     this.contentKey(app, s, key);
+  }
+
+  private switchTab(app: App, delta: number): void {
+    this.tab = (this.tab + delta + TAB_COUNT) % TAB_COUNT;
+    this.sub = 0;
+    this.tabFocus = false;
+    app.cue('select');
   }
 
   private cycleSub(app: App, s: GameState): void {
@@ -938,6 +954,74 @@ export class PlayScreen implements Screen {
   private openMenu(app: App): void {
     app.push(new PauseScreen(this));
   }
+
+  click(app: App, x: number, y: number): void {
+    const session = app.session;
+    if (!session) return;
+    const s = session.state;
+
+    if (this.message) {
+      this.message = null;
+      return;
+    }
+
+    // Tab strip.
+    if (x >= SCREEN_W - TAB_STRIP_W && y >= TAB_TOP && y < TAB_TOP + TAB_COUNT * TAB_H) {
+      const index = Math.floor((y - TAB_TOP) / TAB_H);
+      if (index !== this.tab) {
+        this.tab = index;
+        this.sub = 0;
+        app.cue('select');
+      }
+      this.tabFocus = false;
+      return;
+    }
+
+    // Status bar: tap the clock area to pause or resume.
+    if (y < TOP_BAR_H && x < 44) {
+      s.speed = s.speed === 0 ? 1 : 0;
+      app.cue('select');
+      return;
+    }
+
+    // Bottom bar: left softkey flips the sub-screen, right one confirms.
+    if (y >= SCREEN_H - BOTTOM_BAR_H) {
+      if (x < SCREEN_W / 3) this.key(app, 'soft1');
+      else if (x > (SCREEN_W * 2) / 3) this.key(app, 'select');
+      else this.openMenu(app);
+      return;
+    }
+
+    // Sub-tab strip.
+    const subs = SUB_TABS[this.tab];
+    if (subs.length > 1 && y >= CONTENT.y && y < CONTENT.y + 11 && x < CONTENT.w) {
+      if (this.tab === 10) this.cycleSub(app, s);
+      else {
+        const index = Math.min(subs.length - 1, Math.floor(x / (CONTENT.w / subs.length)));
+        if (index !== this.sub) {
+          this.sub = index;
+          this.cursor[this.tab] = 0;
+          this.first[this.tab] = 0;
+          app.cue('select');
+        }
+      }
+      return;
+    }
+
+    // List rows: first tap selects, a tap on the selected row activates it.
+    const rows = this.rows(s);
+    if (rows.length === 0 || x >= CONTENT.w) return;
+    const rowH = 18;
+    const areaH = LIST_AREA.h - 24;
+    if (y < LIST_AREA.y || y >= LIST_AREA.y + areaH) return;
+    const index = this.first[this.tab] + Math.floor((y - LIST_AREA.y) / rowH);
+    if (index < 0 || index >= rows.length) return;
+    if (index === this.cursor[this.tab]) this.activate(app, s, rows[index].id);
+    else {
+      this.cursor[this.tab] = index;
+      app.cue('select');
+    }
+  }
 }
 
 // ---------------------------------------------------------------- pause menu
@@ -970,6 +1054,19 @@ class PauseScreen implements Screen {
       const text = i === 2 ? `${S.hints}: ${app.settings.hints ? S.on : S.off}` : label;
       p.text(text, SCREEN_W / 2, iy + 1, on ? C.selInk : C.ink, 'center');
     });
+  }
+
+  click(app: App, x: number, y: number): void {
+    const boxH = this.items.length * 16 + 16;
+    const top = Math.round((SCREEN_H - boxH) / 2) + 16;
+    if (x < 22 || x > SCREEN_W - 22 || y < top - 2) {
+      app.pop();
+      return;
+    }
+    const index = Math.floor((y - top + 2) / 16);
+    if (index < 0 || index >= this.items.length) return;
+    this.index = index;
+    this.key(app, 'select');
   }
 
   key(app: App, key: Key): void {

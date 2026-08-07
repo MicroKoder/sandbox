@@ -42,6 +42,11 @@ class MainScene extends Phaser.Scene {
     this.app = new App(input, new SoundBank());
     this.app.push(new SplashScreen());
 
+    image.setInteractive({ useHandCursor: false });
+    image.on('pointerdown', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      this.app.tap(Math.floor(localX), Math.floor(localY));
+    });
+
     this.lastTime = this.time.now;
   }
 

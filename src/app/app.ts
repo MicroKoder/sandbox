@@ -14,6 +14,8 @@ export interface Screen {
   update?(app: App, dt: number): void;
   draw(app: App, p: Painter): void;
   key?(app: App, key: Key): void;
+  /** Pointer tap, in logical 176x208 coordinates. */
+  click?(app: App, x: number, y: number): void;
 }
 
 /** A mission in progress: persistent state plus the transient entity world. */
@@ -32,6 +34,7 @@ export class App {
   clock = 0;
 
   private stack: Screen[] = [];
+  private taps: Array<{ x: number; y: number }> = [];
 
   constructor(input: Input, sound: SoundBank) {
     this.input = input;
@@ -86,6 +89,11 @@ export class App {
     this.sound.play(name);
   }
 
+  /** Queues a pointer tap in logical screen coordinates. */
+  tap(x: number, y: number): void {
+    this.taps.push({ x, y });
+  }
+
   update(dt: number): void {
     this.clock += dt;
     const screen = this.top;
@@ -97,6 +105,16 @@ export class App {
       // A key handler may swap the screen; stop feeding the old one.
       if (this.top !== screen) break;
     }
+
+    const taps = this.taps;
+    this.taps = [];
+    for (const point of taps) {
+      const current = this.top;
+      if (!current) break;
+      this.sound.unlock();
+      current.click?.(this, point.x, point.y);
+    }
+
     this.top?.update?.(this, dt);
   }
 

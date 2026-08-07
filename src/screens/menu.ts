@@ -47,6 +47,10 @@ export class SplashScreen implements Screen {
     app.cue('select');
     app.replace(new MenuScreen());
   }
+
+  click(app: App): void {
+    this.key(app);
+  }
 }
 
 // ---------------------------------------------------------------- main menu
@@ -96,6 +100,13 @@ export class MenuScreen implements Screen {
     softkeys(p, undefined, S.exit, `${app.settings.playerName}`);
   }
 
+  click(app: App, _x: number, y: number): void {
+    const index = Math.floor((y - 46) / 19);
+    if (index < 0 || index >= this.items.length) return;
+    this.index = index;
+    this.key(app, 'select');
+  }
+
   key(app: App, key: Key): void {
     if (key === 'up') {
       this.index = (this.index + this.items.length - 1) % this.items.length;
@@ -142,6 +153,16 @@ export class SettingsScreen implements Screen {
 
     p.paragraph('ВЛЕВО/ВПРАВО — ИЗМЕНИТЬ', 10, 122, SCREEN_W - 20, C.inkFaint, 2, 'center');
     softkeys(p, S.back);
+  }
+
+  click(app: App, _x: number, y: number): void {
+    const index = Math.floor((y - 30) / 20);
+    if (index < 0 || index > 3) {
+      this.key(app, 'back');
+      return;
+    }
+    this.index = index;
+    this.key(app, 'select');
   }
 
   key(app: App, key: Key): void {
@@ -233,6 +254,11 @@ export class HelpScreen implements Screen {
     softkeys(p, S.back, undefined, '↑↓');
   }
 
+  click(app: App, _x: number, y: number): void {
+    if (y >= SCREEN_H - 13) app.pop();
+    else this.key(app, y > SCREEN_H / 2 ? 'down' : 'up');
+  }
+
   key(app: App, key: Key): void {
     const max = Math.max(0, this.height - (FULL.h - 10));
     if (key === 'down') this.scroll = Math.min(max, this.scroll + 9);
@@ -281,6 +307,12 @@ export class RecordsScreen implements Screen {
     }
   }
 
+  click(app: App, _x: number, y: number): void {
+    const index = this.first + Math.floor((y - (FULL.y + 2)) / 14);
+    if (index >= 0 && index < MISSION_COUNT) this.index = index;
+    else app.pop();
+  }
+
   key(app: App, key: Key): void {
     if (key === 'up') this.index = (this.index + MISSION_COUNT - 1) % MISSION_COUNT;
     else if (key === 'down') this.index = (this.index + 1) % MISSION_COUNT;
@@ -307,6 +339,13 @@ export class GameTypeScreen implements Screen {
     });
 
     softkeys(p, S.back, S.next);
+  }
+
+  click(app: App, _x: number, y: number): void {
+    const index = Math.floor((y - 76) / 22);
+    if (index < 0 || index > 1) return;
+    this.index = index;
+    this.key(app, 'select');
   }
 
   key(app: App, key: Key): void {
@@ -374,6 +413,10 @@ export class NameScreen implements Screen {
     this.value = this.value.slice(0, -1);
   }
 
+  click(app: App): void {
+    this.key(app, 'select');
+  }
+
   key(app: App, key: Key): void {
     if (key === 'select') {
       const name = this.value.trim() || 'ИГРОК';
@@ -415,6 +458,13 @@ export class MissionSelectScreen implements Screen {
 
     scrollbar(p, { x: SCREEN_W - 4, y: FULL.y + 2, w: 2, h: FULL.h - 4 }, win.first, win.visible, MISSION_COUNT);
     softkeys(p, S.back, S.next);
+  }
+
+  click(app: App, _x: number, y: number): void {
+    const index = this.first + Math.floor((y - (FULL.y + 2)) / 14);
+    if (index < 0 || index >= MISSION_COUNT) return;
+    if (index === this.index) this.key(app, 'select');
+    else this.index = index;
   }
 
   key(app: App, key: Key): void {
@@ -468,6 +518,14 @@ export class BriefingScreen implements Screen {
     }
 
     softkeys(p, S.back, S.accept);
+  }
+
+  click(app: App, x: number, y: number): void {
+    if (y >= SCREEN_H - 13) {
+      this.key(app, x > SCREEN_W / 2 ? 'select' : 'back');
+      return;
+    }
+    this.key(app, y > SCREEN_H / 2 ? 'down' : 'up');
   }
 
   key(app: App, key: Key): void {
@@ -542,6 +600,10 @@ export class EndingScreen implements Screen {
     softkeys(p, S.toMenu, s.campaign && won ? S.next : undefined);
   }
 
+  click(app: App): void {
+    this.key(app, 'select');
+  }
+
   key(app: App, key: Key): void {
     const s = this.state;
     if (key === 'select' && s.campaign && s.ending === 'win' && s.missionIndex + 1 < MISSION_COUNT) {
@@ -571,6 +633,11 @@ export class ConfirmScreen implements Screen {
   draw(app: App, p: Painter): void {
     this.under.draw(app, p);
     dialog(p, this.prompt, { yes: S.yes, no: S.cancel, selected: this.index });
+  }
+
+  click(app: App, x: number): void {
+    this.index = x < SCREEN_W / 2 ? 0 : 1;
+    this.key(app, 'select');
   }
 
   key(app: App, key: Key): void {

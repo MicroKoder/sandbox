@@ -14,7 +14,9 @@ export type Key =
   | 'buySmall'
   | 'buyBig'
   | 'sellSmall'
-  | 'sellBig';
+  | 'sellBig'
+  | 'prevTab'
+  | 'nextTab';
 
 /**
  * Keyboard mapping. The number-pad shortcuts of the original (4/6 small
@@ -55,6 +57,12 @@ const MAP: Record<string, Key> = {
   Numpad6: 'buySmall',
   Numpad7: 'sellBig',
   Numpad9: 'buyBig',
+  KeyQ: 'prevTab',
+  KeyE: 'nextTab',
+  BracketLeft: 'prevTab',
+  BracketRight: 'nextTab',
+  PageUp: 'prevTab',
+  PageDown: 'nextTab',
 };
 
 const REPEATABLE = new Set<Key>(['up', 'down', 'left', 'right', 'buySmall', 'buyBig', 'sellSmall', 'sellBig']);

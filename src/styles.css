@@ -190,6 +190,15 @@ body {
   color: var(--ink-dim);
 }
 
+.hint {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
 kbd {
   display: inline-block;
   min-width: 20px;
