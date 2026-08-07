@@ -14,7 +14,7 @@ export interface Screen {
   update?(app: App, dt: number): void;
   draw(app: App, p: Painter): void;
   key?(app: App, key: Key): void;
-  /** Pointer tap, in logical 176x208 coordinates. */
+  /** Pointer tap, in logical screen coordinates. */
   click?(app: App, x: number, y: number): void;
 }
 

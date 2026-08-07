@@ -14,9 +14,8 @@ import {
 import { UPGRADE_SECOND_FLOOR, UPGRADE_TABLES } from '../data/content.ts';
 
 /**
- * The two "ПИЦЦЕРИЯ" sub-views. Both are drawn straight into the shared 176x208
- * pixel buffer, offset so that the interior's own 158x150 space lands under the
- * status bar.
+ * The two "ПИЦЦЕРИЯ" sub-views. Both are drawn straight into the shared pixel
+ * buffer, offset so the room fills the content pane under the status bar.
  */
 
 const personCache = new Map<string, HTMLCanvasElement>();
