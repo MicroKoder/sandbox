@@ -39,7 +39,7 @@ export class SplashScreen implements Screen {
     p.text('ВЕБ-РЕМЕЙК', SCREEN_W / 2, 132, C.inkFaint, 'center');
 
     if (Math.floor(this.t / 500) % 2 === 0) {
-      p.text(S.pressAnyKey, SCREEN_W / 2, 178, C.ink, 'center');
+      p.text(S.pressAnyKey, SCREEN_W / 2, SCREEN_H - 22, C.ink, 'center');
     }
   }
 

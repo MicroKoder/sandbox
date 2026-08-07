@@ -11,13 +11,14 @@ const TEXTURE_KEY = 'screen';
 
 /**
  * Phaser hosts the game loop, scaling, input plumbing and texture upload; the
- * game itself paints every frame into one 176x208 canvas, exactly like the
- * MIDlet did with its off-screen `Image`.
+ * game paints every frame into one logical canvas (wide 320×200), then FIT-scales
+ * it into the browser stage like a modern web game.
  */
 class MainScene extends Phaser.Scene {
   private app!: App;
   private painter!: Painter;
   private texture!: Phaser.Textures.CanvasTexture;
+  private image!: Phaser.GameObjects.Image;
   private lastTime = 0;
 
   constructor() {
@@ -33,8 +34,8 @@ class MainScene extends Phaser.Scene {
     ctx.imageSmoothingEnabled = false;
     this.painter = new Painter(ctx, SCREEN_W, SCREEN_H);
 
-    const image = this.add.image(0, 0, TEXTURE_KEY).setOrigin(0, 0);
-    image.setScrollFactor(0);
+    this.image = this.add.image(0, 0, TEXTURE_KEY).setOrigin(0, 0);
+    this.image.setScrollFactor(0);
 
     const input = new Input();
     input.attach(window);
@@ -42,12 +43,24 @@ class MainScene extends Phaser.Scene {
     this.app = new App(input, new SoundBank());
     this.app.push(new SplashScreen());
 
-    image.setInteractive({ useHandCursor: false });
-    image.on('pointerdown', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+    this.image.setInteractive({ useHandCursor: false });
+    this.image.on('pointerdown', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      // Phaser local coords are already in the unscaled texture space.
       this.app.tap(Math.floor(localX), Math.floor(localY));
     });
 
     this.lastTime = this.time.now;
+    this.layout();
+    this.scale.on('resize', () => this.layout());
+  }
+
+  private layout(): void {
+    const { width, height } = this.scale;
+    const zoom = Math.max(1, Math.floor(Math.min(width / SCREEN_W, height / SCREEN_H)));
+    const drawW = SCREEN_W * zoom;
+    const drawH = SCREEN_H * zoom;
+    this.image.setScale(zoom);
+    this.image.setPosition(Math.floor((width - drawW) / 2), Math.floor((height - drawH) / 2));
   }
 
   override update(time: number): void {
@@ -60,28 +73,34 @@ class MainScene extends Phaser.Scene {
   }
 }
 
-function integerZoom(): number {
-  const margin = 40;
-  const w = Math.max(320, window.innerWidth) - margin;
-  const h = Math.max(320, window.innerHeight) - 260;
-  return Math.max(1, Math.min(5, Math.floor(Math.min(w / SCREEN_W, h / SCREEN_H))));
+function stageSize(): { w: number; h: number } {
+  const stage = document.getElementById('game');
+  if (stage) {
+    const rect = stage.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return { w: Math.floor(rect.width), h: Math.floor(rect.height) };
+    }
+  }
+  return { w: Math.max(640, window.innerWidth - 48), h: Math.max(400, window.innerHeight - 160) };
 }
+
+const initial = stageSize();
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: SCREEN_W,
-  height: SCREEN_H,
-  zoom: integerZoom(),
+  width: initial.w,
+  height: initial.h,
   pixelArt: true,
-  backgroundColor: '#000000',
+  backgroundColor: '#050505',
   scale: {
-    mode: Phaser.Scale.NONE,
-    autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [MainScene],
 });
 
 window.addEventListener('resize', () => {
-  game.scale.setZoom(integerZoom());
+  const { w, h } = stageSize();
+  game.scale.resize(w, h);
 });

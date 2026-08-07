@@ -280,8 +280,8 @@ function updateCars(ctx: SimContext): void {
  * Road layout (room y): pavement 96–118, road 118–170, centre line at 144.
  * Top lane (above the line) drives left; bottom lane drives right.
  */
-const ROAD_LANE_TOP_Y = 142;
-const ROAD_LANE_BOTTOM_Y = 168;
+const ROAD_LANE_TOP_Y = 136;
+const ROAD_LANE_BOTTOM_Y = 158;
 
 function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
   const { world: w, rng } = ctx;
@@ -301,7 +301,7 @@ function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
 }
 
 /** Exterior door threshold — centre of the street-view doorway on the pavement. */
-const DOOR_STREET = { x: 79, y: 97 };
+const DOOR_STREET = { x: Math.floor(ROOM_W / 2), y: 97 };
 
 /** Whether a sidewalk passer-by is allowed to start walking up to the door. */
 function canEnter(ctx: SimContext): boolean {

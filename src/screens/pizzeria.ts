@@ -98,9 +98,11 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
     p.hLine(x0 + ox - 5, oy + 24, 10, '#8a6a44');
   }
 
-  // Counter.
-  p.fill(x0 + 88, oy + KITCHEN_Y - 6, 64, 6, '#8a6034');
-  p.hLine(x0 + 88, oy + KITCHEN_Y - 6, 64, '#b8834a');
+  // Counter — stretches across the kitchen side of the wider room.
+  const counterX = Math.floor(ROOM_W * 0.55);
+  const counterW = ROOM_W - counterX - 6;
+  p.fill(x0 + counterX, oy + KITCHEN_Y - 6, counterW, 6, '#8a6034');
+  p.hLine(x0 + counterX, oy + KITCHEN_Y - 6, counterW, '#b8834a');
 
   // Vending machines.
   for (const m of installedMachines(s)) {
@@ -110,8 +112,8 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
 
   // Plants and bins, when installed.
   if (s.upgrades[4]) {
-    drawPlant(p, x0 + 150, oy + 46);
-    drawPlant(p, x0 + 150, oy + 118);
+    drawPlant(p, x0 + ROOM_W - 8, oy + 46);
+    drawPlant(p, x0 + ROOM_W - 8, oy + 118);
   }
   if (s.upgrades[3]) drawBin(p, x0 + 6, oy + 134);
 
@@ -267,9 +269,9 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
     }
   }
 
-  // Our pizzeria.
-  const bx = 34;
-  const bw = 90;
+  // Our pizzeria — centred on the wider street facade.
+  const bw = 140;
+  const bx = Math.floor((ROOM_W - bw) / 2);
   const hasFloor2 = s.upgrades[UPGRADE_SECOND_FLOOR];
   const top = hasFloor2 ? 18 : 44;
 
@@ -283,16 +285,16 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
   p.fill(bx - 1, oy + top - 6, bw + 2, 2, '#96602f');
 
   if (hasFloor2) {
-    for (let i = 0; i < 3; i++) {
-      const wx = bx + 10 + i * 26;
-      p.box(wx, oy + top + 8, 18, 16, night ? '#ffd97a' : '#8fc0dc', '#5c3a1c');
-      p.vLine(wx + 9, oy + top + 9, 14, '#5c3a1c');
+    for (let i = 0; i < 4; i++) {
+      const wx = bx + 12 + i * 30;
+      p.box(wx, oy + top + 8, 20, 16, night ? '#ffd97a' : '#8fc0dc', '#5c3a1c');
+      p.vLine(wx + 10, oy + top + 9, 14, '#5c3a1c');
     }
     p.hLine(bx, oy + 44, bw, '#8a5228');
   }
 
   // Sign.
-  p.box(bx + 8, oy + 48, bw - 16, 12, '#2f1d12', C.gold);
+  p.box(bx + 16, oy + 48, bw - 32, 12, '#2f1d12', C.gold);
   p.text('ПИЦЦЕРИЯ', bx + bw / 2, oy + 51, s.open ? C.gold : C.inkFaint, 'center');
 
   // Awning.
@@ -303,14 +305,14 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
   p.hLine(bx + 4, oy + 62, bw - 8, '#8a2a1c');
 
   // Windows and door.
-  p.box(bx + 6, oy + 72, 26, 24, night ? '#3a2a1e' : '#8fc0dc', '#5c3a1c');
-  p.box(bx + bw - 32, oy + 72, 26, 24, night ? '#3a2a1e' : '#8fc0dc', '#5c3a1c');
+  p.box(bx + 10, oy + 72, 32, 24, night ? '#3a2a1e' : '#8fc0dc', '#5c3a1c');
+  p.box(bx + bw - 42, oy + 72, 32, 24, night ? '#3a2a1e' : '#8fc0dc', '#5c3a1c');
   if (s.open) {
-    p.fill(bx + 8, oy + 74, 22, 20, '#ffd97a');
-    p.fill(bx + bw - 30, oy + 74, 22, 20, '#ffd97a');
+    p.fill(bx + 12, oy + 74, 28, 20, '#ffd97a');
+    p.fill(bx + bw - 40, oy + 74, 28, 20, '#ffd97a');
   }
-  p.box(bx + bw / 2 - 9, oy + 74, 18, 22, '#4a2f1a', '#7a4a24');
-  p.px(bx + bw / 2 + 4, oy + 86, C.gold);
+  p.box(bx + bw / 2 - 10, oy + 74, 20, 22, '#4a2f1a', '#7a4a24');
+  p.px(bx + bw / 2 + 5, oy + 86, C.gold);
 
   // Optional exterior upgrades.
   if (s.upgrades[2]) {
@@ -323,10 +325,10 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
     p.text('ЦА', 17, oy + 72, C.gold, 'center');
     p.fill(15, oy + 84, 4, 12, '#5a5f66');
   }
-  if (s.upgrades[3]) drawBin(p, 140, oy + 100);
+  if (s.upgrades[3]) drawBin(p, ROOM_W - 18, oy + 100);
   if (s.upgrades[4]) {
-    drawPlant(p, bx - 6, oy + 104);
-    drawPlant(p, bx + bw + 5, oy + 104);
+    drawPlant(p, bx - 8, oy + 104);
+    drawPlant(p, bx + bw + 8, oy + 104);
   }
 
   // Pavement (people) and two-lane road (cars).

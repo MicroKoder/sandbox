@@ -1,15 +1,20 @@
 import { TABLE_SLOTS, SEATS_PER_TABLE } from '../data/content.ts';
+import { CONTENT } from '../core/screen.ts';
 
-/** Interior view is drawn in its own 158x150 pixel space. */
-export const ROOM_W = 158;
-export const ROOM_H = 170;
+/** Interior / exterior view fills the content pane under the sub-tab strip. */
+export const ROOM_W = CONTENT.w;
+export const ROOM_H = CONTENT.h - 11;
 
-export const DOOR = { x: 79, y: 152 };
+export const DOOR = { x: Math.floor(ROOM_W / 2), y: ROOM_H - 18 };
 export const KITCHEN_Y = 34;
-export const OVEN_XS = [112, 126, 140];
+export const OVEN_XS = [ROOM_W - 46, ROOM_W - 32, ROOM_W - 18];
 
 /** The original stored tables on a coarse tile grid; these are the pixel centres. */
-const TILE_X: Record<number, number> = { 1: 28, 3: 79, 5: 130 };
+const TILE_X: Record<number, number> = {
+  1: Math.floor(ROOM_W * 0.18),
+  3: Math.floor(ROOM_W * 0.5),
+  5: Math.floor(ROOM_W * 0.82),
+};
 const TILE_Y: Record<number, number> = { 2: 58, 3: 82, 4: 106 };
 
 export const TABLES = TABLE_SLOTS.map(([tx, ty]) => ({ x: TILE_X[tx], y: TILE_Y[ty], tx, ty }));
