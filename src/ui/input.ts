@@ -38,8 +38,6 @@ const MAP: Record<string, Key> = {
   Enter: 'select',
   NumpadEnter: 'select',
   Space: 'select',
-  Digit5: 'select',
-  Numpad5: 'select',
   Escape: 'back',
   Backspace: 'back',
   Tab: 'soft1',
@@ -107,17 +105,24 @@ export class Input {
       }
     }
 
+    const repeat = this.raw.has(ev.code);
+    this.raw.add(ev.code);
+
+    // Tracked before the key lookup: the sequence contains "2", which is not
+    // bound to anything, so it has to survive an unmapped key.
+    if (!repeat) {
+      if (ev.code === CHEAT_SEQUENCE[this.cheatProgress]) this.cheatProgress++;
+      else this.cheatProgress = ev.code === CHEAT_SEQUENCE[0] ? 1 : 0;
+      if (this.cheatProgress === CHEAT_SEQUENCE.length) {
+        this.cheatProgress = 0;
+        this.queue.push('cheat');
+      }
+    }
+
     const key = MAP[ev.code];
     if (!key) return;
     ev.preventDefault();
-    if (this.raw.has(ev.code)) return;
-    this.raw.add(ev.code);
-
-    this.cheatProgress = ev.code === CHEAT_SEQUENCE[this.cheatProgress] ? this.cheatProgress + 1 : 0;
-    if (this.cheatProgress === CHEAT_SEQUENCE.length) {
-      this.cheatProgress = 0;
-      this.queue.push('cheat');
-    }
+    if (repeat) return;
 
     this.queue.push(key);
     if (REPEATABLE.has(key)) {
