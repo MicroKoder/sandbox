@@ -228,7 +228,17 @@ export class PlayScreen implements Screen {
     p.vLine(70, 2, 8, C.lineSoft);
     p.text(formatRating(s.rating), 74, 3, C.sky);
 
-    p.text(`${formatMoney(s.money)}$`, SCREEN_W - 3, 3, s.money < 0 ? C.tomato : C.money, 'right');
+    // Amber once the till no longer covers tonight's wages and advertising bill.
+    const due = dailySalary(s) + dailyAdCost(s);
+    const shortOfBills = due > 0 && s.money < due;
+    p.text(
+      `${formatMoney(s.money)}$`,
+      SCREEN_W - 3,
+      3,
+      s.money < 0 ? C.tomato : shortOfBills ? C.warn : C.money,
+      'right',
+    );
+    if (shortOfBills) p.text('!', SCREEN_W - 3 - p.measure(`${formatMoney(s.money)}$`) - 5, 3, C.tomato);
   }
 
   private drawTabStrip(p: Painter, s: GameState): void {
@@ -269,7 +279,10 @@ export class PlayScreen implements Screen {
 
   private drawTab(app: App, p: Painter, s: GameState): void {
     const subs = SUB_TABS[this.tab];
-    if (this.tab === 10) {
+    if (subs.length === 0) {
+      // Screens without sub-views still get a header so the layout stays stable.
+      subTabs(p, CONTENT.x, CONTENT.y, CONTENT.w, [TAB_TITLES[this.tab]], 0, false);
+    } else if (this.tab === 10) {
       // The staff screen cycles through five professions x two sub-screens, so a
       // single combined pill reads better than two competing tab rows.
       subTabs(p, CONTENT.x, CONTENT.y, CONTENT.w, [`${STAFF_KINDS[this.staffKind]} · ${subs[this.sub]}`], 0);
@@ -654,7 +667,7 @@ export class PlayScreen implements Screen {
 
   private drawMap(p: Painter, s: GameState): void {
     const m = missionOf(s);
-    const area: Rect = { x: CONTENT.x, y: CONTENT.y, w: CONTENT.w, h: CONTENT.h };
+    const area: Rect = { x: CONTENT.x, y: CONTENT.y + 11, w: CONTENT.w, h: CONTENT.h - 11 };
 
     // City backdrop: blocks and roads.
     p.fill(area.x, area.y, area.w, area.h, '#2b3a2c');

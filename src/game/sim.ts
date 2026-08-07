@@ -169,6 +169,14 @@ export function tick(ctx: SimContext): void {
   updateMachines(w);
   updateDelivery(ctx);
 
+  // 19:00 — warn while there is still time to sell stock back.
+  if (s.tick === 11400) {
+    const due = dailySalary(s) + dailyAdCost(s);
+    if (due > 0 && s.money < due) {
+      log(s, `НЕ ХВАТАЕТ НА ВЫПЛАТЫ: НУЖНО ${due}$`);
+    }
+  }
+
   if (s.tick === TICK_SALARY) {
     const wages = dailySalary(s);
     if (wages > 0) {

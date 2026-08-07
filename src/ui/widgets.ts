@@ -104,9 +104,22 @@ export function dialog(p: Painter, text: string, opts?: { yes?: string; no?: str
   }
 }
 
-/** Horizontal pair of sub-tab labels, as used by nearly every gameplay screen. */
-export function subTabs(p: Painter, x: number, y: number, w: number, labels: string[], active: number): void {
-  const slot = Math.floor(w / labels.length);
+/**
+ * Horizontal strip of sub-screen labels. A single label still gets the strip so
+ * that the "switchable with Tab" affordance stays in the same place everywhere.
+ */
+export function subTabs(
+  p: Painter,
+  x: number,
+  y: number,
+  w: number,
+  labels: string[],
+  active: number,
+  switchable = true,
+): void {
+  const arrowW = switchable ? 9 : 0;
+  const usable = w - arrowW;
+  const slot = Math.floor(usable / labels.length);
   labels.forEach((label, i) => {
     const bx = x + slot * i;
     const on = i === active;
@@ -114,6 +127,11 @@ export function subTabs(p: Painter, x: number, y: number, w: number, labels: str
     if (on) p.hLine(bx, y, slot - 1, C.gold);
     p.text(label, bx + slot / 2, y + 2, on ? C.selInk : C.inkFaint, 'center');
   });
+  // Tab-to-switch marker on the right edge of the strip.
+  if (switchable) {
+    p.fill(x + usable, y, arrowW, 10, C.bar);
+    p.text('⇄', x + usable + arrowW / 2, y + 2, C.gold, 'center');
+  }
   p.hLine(x, y + 10, w, C.line);
 }
 
