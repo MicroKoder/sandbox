@@ -212,6 +212,7 @@ function updateStreet(ctx: SimContext): void {
       y: 108 + rng.int(0, 6),
       dir,
       decided: false,
+      entering: false,
       anim: 0,
     });
     w.spawnCooldown = 5;
@@ -219,13 +220,34 @@ function updateStreet(ctx: SimContext): void {
 
   for (let i = w.walkers.length - 1; i >= 0; i--) {
     const p = w.walkers[i];
+
+    // After choosing to come in, walk up the pavement to the door, then enter.
+    if (p.entering) {
+      const dx = DOOR_STREET.x - p.x;
+      const dy = DOOR_STREET.y - p.y;
+      const dist = Math.hypot(dx, dy);
+      const speed = 0.45;
+      p.anim += speed;
+      if (Math.abs(dx) > 0.3) p.dir = dx > 0 ? 1 : -1;
+      if (dist <= speed) {
+        p.x = DOOR_STREET.x;
+        p.y = DOOR_STREET.y;
+        admitCustomer(ctx, p.seed);
+        w.walkers.splice(i, 1);
+      } else {
+        p.x += (dx / dist) * speed;
+        p.y += (dy / dist) * speed;
+      }
+      continue;
+    }
+
     p.x += p.dir * 0.4;
     p.anim += 0.4;
 
-    if (!p.decided && Math.abs(p.x - DOOR.x) < 2) {
+    if (!p.decided && Math.abs(p.x - DOOR_STREET.x) < 2) {
       p.decided = true;
-      if (tryEnter(ctx, p.seed)) {
-        w.walkers.splice(i, 1);
+      if (canEnter(ctx)) {
+        p.entering = true;
         continue;
       }
     }
@@ -258,8 +280,8 @@ function updateCars(ctx: SimContext): void {
  * Road layout (room y): pavement 96–118, road 118–170, centre line at 144.
  * Top lane (above the line) drives left; bottom lane drives right.
  */
-const ROAD_LANE_TOP_Y = 141;
-const ROAD_LANE_BOTTOM_Y = 166;
+const ROAD_LANE_TOP_Y = 142;
+const ROAD_LANE_BOTTOM_Y = 168;
 
 function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
   const { world: w, rng } = ctx;
@@ -278,13 +300,22 @@ function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
   });
 }
 
-/** A pedestrian at the door decides whether to become a customer (C.java:6486). */
-function tryEnter(ctx: SimContext, seed: number): boolean {
+/** Exterior door threshold — centre of the street-view doorway on the pavement. */
+const DOOR_STREET = { x: 79, y: 97 };
+
+/** Whether a sidewalk passer-by is allowed to start walking up to the door. */
+function canEnter(ctx: SimContext): boolean {
   const { state: s, world: w, rng } = ctx;
   if (s.tick < TICK_FIRST_CUSTOMER || s.tick > TICK_LAST_CUSTOMER) return false;
   if (!s.open) return false;
   if (w.customers.length + w.staff.length >= entityCap(s)) return false;
-  if (!rng.chance(entryChance(s))) return false;
+  return rng.chance(entryChance(s));
+}
+
+/** Materialise a customer once the walker has reached the exterior door (C.java:6486). */
+function admitCustomer(ctx: SimContext, seed: number): void {
+  const { state: s, world: w, rng } = ctx;
+  if (w.customers.length + w.staff.length >= entityCap(s)) return;
 
   const customer: Customer = {
     kind: 'customer',
@@ -313,7 +344,7 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
     customer.mood = MOOD.scared;
     leave(customer, w);
     w.customers.push(customer);
-    return true;
+    return;
   }
 
   if (rng.chance(80)) {
@@ -352,7 +383,6 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
   }
 
   w.customers.push(customer);
-  return true;
 }
 
 // ----------------------------------------------------------------- customers

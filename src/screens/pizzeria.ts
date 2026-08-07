@@ -346,8 +346,10 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
     p.fill(x, oy + 160, 7, 1, '#7a7568');
   }
 
-  // Pedestrians on the pavement (above the kerb).
-  for (const walker of w.walkers) {
+  // Pedestrians on the pavement; sort by feet so those walking up to the door
+  // sit correctly in depth as they approach the facade.
+  const walkers = [...w.walkers].sort((a, b) => a.y - b.y);
+  for (const walker of walkers) {
     drawVisitor(p, walker.seed, walker.x, oy + walker.y, poseOf(walker.anim, true), walker.dir);
   }
 

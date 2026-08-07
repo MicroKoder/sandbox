@@ -96,6 +96,8 @@ export interface Walker {
   dir: 1 | -1;
   /** Set once the walker has decided whether to come in. */
   decided: boolean;
+  /** Walking from the pavement up to the door before vanishing inside. */
+  entering: boolean;
   anim: number;
 }
 
