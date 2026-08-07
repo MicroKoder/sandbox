@@ -16,7 +16,8 @@ export type Key =
   | 'sellSmall'
   | 'sellBig'
   | 'prevTab'
-  | 'nextTab';
+  | 'nextTab'
+  | 'cheat';
 
 /**
  * Keyboard mapping. The number-pad shortcuts of the original (4/6 small
@@ -67,6 +68,12 @@ const MAP: Record<string, Key> = {
 
 const REPEATABLE = new Set<Key>(['up', 'down', 'left', 'right', 'buySmall', 'buyBig', 'sellSmall', 'sellBig']);
 
+/**
+ * The original's easter egg: the keypad sequence 5-2-6-6-5-6 granted 100000 in
+ * cash (`var_int_arr_o = {53,50,54,54,53,54}`, C.java:7485 and 1678).
+ */
+const CHEAT_SEQUENCE = ['Digit5', 'Digit2', 'Digit6', 'Digit6', 'Digit5', 'Digit6'];
+
 const REPEAT_DELAY = 380;
 const REPEAT_RATE = 70;
 
@@ -83,6 +90,7 @@ export class Input {
   private queue: Key[] = [];
   private held = new Map<Key, { at: number; next: number }>();
   private raw = new Set<string>();
+  private cheatProgress = 0;
   textTarget: TextInputTarget | null = null;
 
   private onDown = (ev: KeyboardEvent): void => {
@@ -104,6 +112,13 @@ export class Input {
     ev.preventDefault();
     if (this.raw.has(ev.code)) return;
     this.raw.add(ev.code);
+
+    this.cheatProgress = ev.code === CHEAT_SEQUENCE[this.cheatProgress] ? this.cheatProgress + 1 : 0;
+    if (this.cheatProgress === CHEAT_SEQUENCE.length) {
+      this.cheatProgress = 0;
+      this.queue.push('cheat');
+    }
+
     this.queue.push(key);
     if (REPEATABLE.has(key)) {
       this.held.set(key, { at: performance.now(), next: performance.now() + REPEAT_DELAY });

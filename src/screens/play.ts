@@ -44,6 +44,7 @@ import {
   sellMachine,
   startAd,
   stopAd,
+  log,
   suppliedIngredients,
   suppliedProducts,
   supplyIngredient,
@@ -752,6 +753,12 @@ export class PlayScreen implements Screen {
         return;
       case 'menu':
         this.openMenu(app);
+        return;
+      case 'cheat':
+        // The original's easter egg, kept as-is.
+        s.money += 100000;
+        log(s, 'НЕОЖИДАННОЕ ПОСТУПЛЕНИЕ: 100000$');
+        app.cue('cash');
         return;
       case 'soft1':
         this.cycleSub(app, s);
