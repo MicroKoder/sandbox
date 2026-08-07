@@ -289,12 +289,10 @@ export class RecordsScreen implements Screen {
       row(p, 2, y, SCREEN_W - 8, rowH, m === this.index);
       const locked = rec === null;
       p.text(`${m + 1}.`, 5, y + 3, locked ? C.inkFaint : C.inkDim);
-      p.text(MISSIONS[m].name, 17, y + 3, locked ? C.inkFaint : C.ink);
-      if (rec && rec.days > 0) {
-        p.text(`${rec.days} ${S.days}`, SCREEN_W - 10, y + 3, C.gold, 'right');
-      } else if (locked) {
-        p.text('---', SCREEN_W - 10, y + 3, C.inkFaint, 'right');
-      }
+      const badge = rec && rec.days > 0 ? `${rec.days} ${S.days}` : locked ? '---' : '';
+      const room = SCREEN_W - 10 - 17 - (badge ? p.measure(badge) + 4 : 0);
+      p.textClipped(MISSIONS[m].name, 17, y + 3, room, locked ? C.inkFaint : C.ink);
+      if (badge) p.text(badge, SCREEN_W - 10, y + 3, rec && rec.days > 0 ? C.gold : C.inkFaint, 'right');
     }
 
     scrollbar(p, { x: SCREEN_W - 4, y: FULL.y + 2, w: 2, h: FULL.h - 4 }, win.first, win.visible, MISSION_COUNT);
@@ -397,8 +395,12 @@ export class NameScreen implements Screen {
     const x = (SCREEN_W - boxW) / 2;
     p.panel(x, 92, boxW, 18, { fill: C.panelLo, raised: false });
     p.stroke(x, 92, boxW, 18, C.gold);
-    const caret = Math.floor(app.clock / 400) % 2 === 0 ? '_' : ' ';
-    p.text(this.value + caret, SCREEN_W / 2, 98, C.ink, 'center');
+    const width = p.measure(this.value);
+    const left = Math.round(SCREEN_W / 2 - (width + 4) / 2);
+    p.text(this.value, left, 98, C.ink);
+    if (Math.floor(app.clock / 400) % 2 === 0 && this.value.length < 8) {
+      p.fill(left + width + 2, 104, 4, 1, C.gold);
+    }
 
     softkeys(p, S.back, S.accept);
   }
@@ -452,8 +454,10 @@ export class MissionSelectScreen implements Screen {
       const locked = !isUnlocked(app.records, m);
       row(p, 2, y, SCREEN_W - 8, rowH, m === this.index);
       p.text(`${m + 1}.`, 5, y + 3, locked ? C.inkFaint : C.inkDim);
-      p.text(MISSIONS[m].name, 17, y + 3, locked ? C.inkFaint : C.ink);
-      if (locked) p.text('ЗАКРЫТО', SCREEN_W - 10, y + 3, C.inkFaint, 'right');
+      const badge = locked ? 'ЗАКРЫТО' : '';
+      const room = SCREEN_W - 10 - 17 - (badge ? p.measure(badge) + 4 : 0);
+      p.textClipped(MISSIONS[m].name, 17, y + 3, room, locked ? C.inkFaint : C.ink);
+      if (badge) p.text(badge, SCREEN_W - 10, y + 3, C.inkFaint, 'right');
     }
 
     scrollbar(p, { x: SCREEN_W - 4, y: FULL.y + 2, w: 2, h: FULL.h - 4 }, win.first, win.visible, MISSION_COUNT);

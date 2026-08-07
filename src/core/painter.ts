@@ -212,6 +212,26 @@ export class Painter {
   measure = measure;
   wrap = wrap;
 
+  /** Truncates `text` with a trailing ellipsis so it fits `maxWidth` pixels. */
+  ellipsize(text: string, maxWidth: number): string {
+    if (maxWidth <= 0) return '';
+    if (measure(text) <= maxWidth) return text;
+    const dots = '…';
+    const budget = maxWidth - measure(dots);
+    if (budget <= 0) return dots;
+    let out = '';
+    for (const ch of text) {
+      if (measure(out + ch) > budget) break;
+      out += ch;
+    }
+    return `${out.trimEnd()}${dots}`;
+  }
+
+  /** Draws `text` truncated to `maxWidth`; returns the width actually used. */
+  textClipped(text: string, x: number, y: number, maxWidth: number, color: string = C.ink): number {
+    return this.text(this.ellipsize(text, maxWidth), x, y, color);
+  }
+
   // ---------------------------------------------------------------- bitmaps
 
   /** Blits a full source canvas at integer coordinates. */

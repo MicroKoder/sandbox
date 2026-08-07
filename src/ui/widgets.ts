@@ -137,8 +137,8 @@ export function subTabs(
 
 /** Two-column "label ......... value" line, used all over the detail panes. */
 export function fieldLine(p: Painter, label: string, value: string, x: number, y: number, w: number, valueColor = C.gold): void {
-  p.text(label, x, y, C.inkDim);
   p.text(value, x + w, y, valueColor, 'right');
+  p.textClipped(label, x, y, w - p.measure(value) - 4, C.inkDim);
 }
 
 export function formatMoney(v: number): string {

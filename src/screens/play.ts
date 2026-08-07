@@ -499,13 +499,21 @@ export class PlayScreen implements Screen {
         p.blit(item.icon, tx, y + Math.max(0, (rowH - item.icon.height) / 2));
         tx += item.icon.width + 3;
       }
-      p.text(item.label, tx, y + 3, item.dim ? C.inkFaint : idx === cursor ? C.selInk : C.ink);
+
+      const rightEdge = LIST_AREA.x + LIST_AREA.w - 6;
+      const valueW = item.right ? p.measure(item.right) + 4 : 0;
+      p.textClipped(
+        item.label,
+        tx,
+        y + 3,
+        rightEdge - tx - valueW,
+        item.dim ? C.inkFaint : idx === cursor ? C.selInk : C.ink,
+      );
       if (item.right) {
-        p.text(item.right, LIST_AREA.x + LIST_AREA.w - 6, y + 3, item.rightColor ?? C.gold, 'right');
+        p.text(item.right, rightEdge, y + 3, item.rightColor ?? C.gold, 'right');
       }
       if (item.sub) {
-        const sub = item.sub.length > 34 ? `${item.sub.slice(0, 33)}…` : item.sub;
-        p.text(sub, tx, y + 10, C.inkFaint);
+        p.textClipped(item.sub, tx, y + 10, rightEdge - tx, C.inkFaint);
       }
     }
 
