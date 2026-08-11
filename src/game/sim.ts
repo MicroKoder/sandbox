@@ -184,8 +184,9 @@ export function tick(ctx: SimContext): void {
       s.money -= wages;
       log(s, `ВЫПЛАЧЕНЫ ЗАРПЛАТЫ: ${wages}$`);
     }
+    // Sign flips to closed, but staff keep working: everyone stays until the
+    // last guest leaves, and the cleaner additionally until the floor is clear.
     s.open = false;
-    for (const st of w.staff) st.state = 'leave';
     if (s.money < 0) {
       finish(s, 'bankrupt');
       return;
@@ -583,8 +584,19 @@ function staffStation(type: number, rng: Rng): { x: number; y: number } {
   }
 }
 
+/** After closing: leave only when the room (and for cleaners, the floor) is done. */
+function shouldStaffLeave(s: GameState, w: World, st: Staff): boolean {
+  if (w.customers.length > 0) return false;
+  if (st.type === 3) {
+    if (s.litter.length > 0) return false;
+    // Finish the scrap already in progress before walking out.
+    if (st.state === 'toLitter' || st.state === 'busy') return false;
+  }
+  return true;
+}
+
 function updateStaff(ctx: SimContext): void {
-  const { world: w, rng } = ctx;
+  const { state: s, world: w, rng } = ctx;
 
   for (let i = w.staff.length - 1; i >= 0; i--) {
     const st = w.staff[i];
@@ -597,6 +609,12 @@ function updateStaff(ctx: SimContext): void {
       }
       if (step(st, speed)) st.state = 'idle';
       continue;
+    }
+
+    if (!s.open && st.state !== 'leave' && shouldStaffLeave(s, w, st)) {
+      st.state = 'leave';
+      st.carrying = false;
+      st.target = -1;
     }
 
     if (st.state === 'leave') {

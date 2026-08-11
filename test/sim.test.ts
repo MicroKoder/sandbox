@@ -5,6 +5,7 @@ import { PIZZAS, UPGRADE_TABLES } from '../src/data/content.ts';
 import { MISSIONS } from '../src/data/missions.ts';
 import { Rng } from '../src/game/rng.ts';
 import {
+  createContext,
   pizzaAcceptance,
   pedestrianCap,
   productAcceptance,
@@ -14,6 +15,7 @@ import {
 import {
   TICKS_PER_DAY,
   TICK_OPEN,
+  TICK_SALARY,
   buyRecipe,
   clockOf,
   createGame,
@@ -24,7 +26,7 @@ import {
   taxPercent,
   wageOf,
 } from '../src/game/state.ts';
-import { bootstrap, manage } from './harness.ts';
+import { bootstrap, hireBest, manage } from './harness.ts';
 
 function newGame(mission = 0, difficulty: 0 | 1 | 2 = 1) {
   return createGame(
@@ -131,6 +133,106 @@ test('the street fills up during the day and empties at night', () => {
   assert.ok(pedestrianCap(s) >= 10);
   s.tick = 13000;
   assert.ok(pedestrianCap(s) > 0 && pedestrianCap(s) < 10);
+});
+
+// ----------------------------------------------------------- closing time
+
+test('staff keep working after close until guests and litter are gone', () => {
+  const rng = new Rng(42);
+  const s = createGame(
+    { playerName: 'ТЕСТ', difficulty: 1, campaign: false, missionIndex: 0 },
+    rng,
+  );
+  installUpgrade(s, UPGRADE_TABLES);
+  hireBest(s, 0);
+  hireBest(s, 1);
+  hireBest(s, 3);
+  const cook = s.candidates.find((c) => c.hired && c.type === 0)!;
+  const waiter = s.candidates.find((c) => c.hired && c.type === 1)!;
+  const cleaner = s.candidates.find((c) => c.hired && c.type === 3)!;
+  assert.ok(cook && waiter && cleaner);
+
+  const ctx = createContext(s, rng);
+  const w = ctx.world;
+  const staffOf = (type: number) => w.staff.find((st) => st.type === type);
+
+  const mkStaff = (c: typeof cook, x: number, y: number) => {
+    w.staff.push({
+      kind: 'staff',
+      id: w.nextId++,
+      type: c.type,
+      slot: c.slot,
+      speed: c.speed,
+      skill: c.skill,
+      x,
+      y,
+      tx: x,
+      ty: y,
+      state: 'idle',
+      timer: 0,
+      target: -1,
+      carrying: false,
+      facing: 1,
+      anim: 0,
+    });
+  };
+  mkStaff(cook, 80, 60);
+  mkStaff(waiter, 100, 100);
+  mkStaff(cleaner, 60, 132);
+
+  w.customers.push({
+    kind: 'customer',
+    id: w.nextId++,
+    seed: 1,
+    x: 120,
+    y: 120,
+    tx: 120,
+    ty: 120,
+    state: 'served',
+    timer: 30,
+    table: 0,
+    seat: 0,
+    machine: -1,
+    mood: 0,
+    bubble: -1,
+    bubbleTimer: 0,
+    facing: 1,
+    anim: 0,
+  });
+  w.seats[0][0] = true;
+  s.litter.push({ x: 90, y: 130, kind: 0 }, { x: 110, y: 125, kind: 1 });
+
+  s.tick = TICK_SALARY - 1;
+  s.open = true;
+  tick(ctx);
+
+  assert.equal(s.open, false, 'pizzeria closed at salary time');
+  assert.ok(w.customers.length > 0, 'guest still inside');
+  assert.ok(staffOf(0) && staffOf(0)!.state !== 'leave', 'cook stays for the guest');
+  assert.ok(staffOf(1) && staffOf(1)!.state !== 'leave', 'waiter stays for the guest');
+  assert.ok(staffOf(3) && staffOf(3)!.state !== 'leave', 'cleaner stays for the guest');
+
+  // Let the guest finish and walk out.
+  let guard = 0;
+  while (w.customers.length > 0 && guard++ < 5000) tick(ctx);
+  assert.equal(w.customers.length, 0, 'last guest left');
+
+  // Top up litter so the cleaner still has work after the guest's own scraps.
+  s.litter.push({ x: 70, y: 128, kind: 0 }, { x: 100, y: 135, kind: 2 }, { x: 130, y: 122, kind: 1 });
+
+  // One tick after the last guest: non-cleaners head for the door, cleaner stays.
+  tick(ctx);
+  assert.ok(!staffOf(0) || staffOf(0)!.state === 'leave', 'cook leaves after last guest');
+  assert.ok(!staffOf(1) || staffOf(1)!.state === 'leave', 'waiter leaves after last guest');
+  assert.ok(staffOf(3), 'cleaner is still on duty');
+  assert.notEqual(staffOf(3)!.state, 'leave', 'cleaner does not leave while litter remains');
+  assert.ok(s.litter.length > 0, 'litter still on the floor');
+
+  // Cleaner clears the floor, then leaves.
+  guard = 0;
+  while (staffOf(3) && guard++ < 8000) tick(ctx);
+  assert.equal(s.litter.length, 0, 'floor is clean');
+  assert.equal(staffOf(3), undefined, 'cleaner left after the last scrap');
 });
 
 // ----------------------------------------------------------------- warnings
