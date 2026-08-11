@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { PIZZAS, UPGRADE_TABLES } from '../src/data/content.ts';
+import { PIZZAS, UPGRADE_SECOND_FLOOR, UPGRADE_TABLES } from '../src/data/content.ts';
 import { MISSIONS } from '../src/data/missions.ts';
 import { Rng } from '../src/game/rng.ts';
+import { tableCount } from '../src/game/entities.ts';
 import {
   createContext,
   pizzaAcceptance,
@@ -79,6 +80,24 @@ test('the second floor doubles the hire cap', () => {
   s.money = 100000;
   installUpgrade(s, 0);
   assert.equal(hireCap(s), 2);
+});
+
+test('the second floor adds two dining tables', () => {
+  const rng = new Rng(1);
+  const s = createGame(
+    { playerName: 'ТЕСТ', difficulty: 1, campaign: false, missionIndex: 0 },
+    rng,
+  );
+  const ctx = createContext(s, rng);
+  assert.equal(ctx.world.seats.length, 5);
+  assert.equal(tableCount(false), 5);
+  assert.equal(tableCount(true), 7);
+
+  s.money = 100000;
+  installUpgrade(s, UPGRADE_SECOND_FLOOR);
+  tick(ctx);
+  assert.equal(ctx.world.seats.length, 7);
+  assert.ok(ctx.world.seats.every((row) => row.length === 3));
 });
 
 // ------------------------------------------------------------------ pricing

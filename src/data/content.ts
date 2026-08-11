@@ -161,7 +161,7 @@ export const UPGRADE_SECOND_FLOOR = 0;
 export const UPGRADE_TABLES = 6;
 
 export const UPGRADES: Upgrade[] = [
-  { name: '2-Й ЭТАЖ', cost: 32000, desc: 'ПОСТРОЙКА 2-ГО ЭТАЖА ДАЁТ ВОЗМОЖНОСТЬ УВЕЛИЧИТЬ ВМЕСТИМОСТЬ ПИЦЦЕРИИ' },
+  { name: '2-Й ЭТАЖ', cost: 32000, desc: 'ДОБАВЛЯЕТ 2 СТОЛА (5→7) И УДВАИВАЕТ ЛИМИТ НАЙМА ПО КАЖДОЙ ПРОФЕССИИ' },
   {
     name: 'КОНДИЦИОНЕРЫ',
     cost: 12000,
@@ -237,7 +237,8 @@ export const STAFF_LOW_SKILL_BAND = [
 
 /**
  * `var_byte_arr_arr_c` (C.java:7505) — the five table anchors inside the
- * pizzeria, each seating up to three visitors.
+ * pizzeria, each seating up to three visitors. The second-floor upgrade adds
+ * two more on the right-hand wall (see FLOOR2_EXTRA_TABLE_SLOTS).
  */
 export const TABLE_SLOTS: ReadonlyArray<readonly [number, number]> = [
   [1, 2],
@@ -246,5 +247,14 @@ export const TABLE_SLOTS: ReadonlyArray<readonly [number, number]> = [
   [3, 4],
   [5, 3],
 ];
+
+/** Extra dining tables unlocked by the second floor (5 → 7). */
+export const FLOOR2_EXTRA_TABLE_SLOTS: ReadonlyArray<readonly [number, number]> = [
+  [5, 2],
+  [5, 4],
+];
+
+export const BASE_TABLE_COUNT = TABLE_SLOTS.length;
+export const FLOOR2_TABLE_COUNT = TABLE_SLOTS.length + FLOOR2_EXTRA_TABLE_SLOTS.length;
 
 export const SEATS_PER_TABLE = 3;

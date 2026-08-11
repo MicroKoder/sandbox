@@ -4,7 +4,7 @@ import { getMoodIcons } from '../art/icons.ts';
 import { deliveryVanSprite, trafficCarSprite } from '../art/cars.ts';
 import { drawPerson, visitorLook, STAFF_LOOKS, type Pose } from '../art/people.ts';
 import { ctxOf, makeCanvas } from '../art/pixel.ts';
-import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_H, ROOM_W, TABLES, machinePos, type Car } from '../game/entities.ts';
+import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_H, ROOM_W, TABLES, machinePos, tableCount, type Car } from '../game/entities.ts';
 import type { World } from '../game/entities.ts';
 import {
   TICKS_PER_HOUR,
@@ -117,9 +117,10 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
   }
   if (s.upgrades[3]) drawBin(p, x0 + 6, oy + 134);
 
-  // Tables.
+  // Tables — second floor unlocks two extra anchors on the right.
   if (s.upgrades[UPGRADE_TABLES]) {
-    for (const t of TABLES) drawTable(p, x0 + t.x, oy + t.y);
+    const n = tableCount(s.upgrades[UPGRADE_SECOND_FLOOR]);
+    for (let i = 0; i < n; i++) drawTable(p, x0 + TABLES[i].x, oy + TABLES[i].y);
   } else {
     p.text('НЕТ СТОЛОВ', x0 + ROOM_W / 2, oy + 74, C.tomato, 'center');
   }

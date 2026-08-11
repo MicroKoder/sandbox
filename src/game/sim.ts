@@ -6,6 +6,8 @@ import {
   machinePos,
   seatPos,
   step,
+  syncWorldSeats,
+  tableCount,
   DOOR,
   KITCHEN_Y,
   OVEN_XS,
@@ -36,6 +38,7 @@ import {
   staffStat,
   type GameState,
 } from './state.ts';
+import { UPGRADE_SECOND_FLOOR } from '../data/content.ts';
 
 /**
  * The simulation, ported from the original's per-tick loop.
@@ -156,6 +159,7 @@ export function tick(ctx: SimContext): void {
   if (s.ending) return;
 
   s.tick++;
+  syncWorldSeats(w, s.upgrades[UPGRADE_SECOND_FLOOR]);
 
   if (s.tick === TICK_OPEN) {
     s.open = true;
@@ -713,7 +717,7 @@ function updateWaiter(ctx: SimContext, st: Staff, speed: number): void {
   const nearestTable = (want: 'wait' | 'ordered', skip: number): number => {
     let best = -1;
     let bestDist = Infinity;
-    for (let t = 0; t < TABLES.length; t++) {
+    for (let t = 0; t < w.seats.length; t++) {
       if (t === skip) continue;
       if (!w.customers.some((c) => c.table === t && c.state === want)) continue;
       const spot = tableSpot(t);
@@ -1013,7 +1017,11 @@ function endDay(ctx: SimContext): void {
   w.cars = [];
   w.staff = [];
   w.carCooldown = 20;
-  w.seats = TABLES.map(() => [false, false, false]);
+  w.seats = Array.from({ length: tableCount(s.upgrades[UPGRADE_SECOND_FLOOR]) }, () => [
+    false,
+    false,
+    false,
+  ]);
   s.litter = [];
   s.profits = { pizza: 0, product: 0, machine: 0, delivery: 0 };
   s.soldToday = 0;

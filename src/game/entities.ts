@@ -1,4 +1,9 @@
-import { TABLE_SLOTS, SEATS_PER_TABLE } from '../data/content.ts';
+import {
+  TABLE_SLOTS,
+  FLOOR2_EXTRA_TABLE_SLOTS,
+  BASE_TABLE_COUNT,
+  SEATS_PER_TABLE,
+} from '../data/content.ts';
 import { CONTENT } from '../core/screen.ts';
 
 /** Interior / exterior view fills the content pane under the sub-tab strip. */
@@ -17,7 +22,28 @@ const TILE_X: Record<number, number> = {
 };
 const TILE_Y: Record<number, number> = { 2: 58, 3: 82, 4: 106 };
 
-export const TABLES = TABLE_SLOTS.map(([tx, ty]) => ({ x: TILE_X[tx], y: TILE_Y[ty], tx, ty }));
+const slotToTable = ([tx, ty]: readonly [number, number]) => ({
+  x: TILE_X[tx],
+  y: TILE_Y[ty],
+  tx,
+  ty,
+});
+
+/** All table anchors: base five plus the two unlocked by the second floor. */
+export const TABLES = [...TABLE_SLOTS, ...FLOOR2_EXTRA_TABLE_SLOTS].map(slotToTable);
+
+/** How many tables are open for seating given the second-floor upgrade. */
+export function tableCount(secondFloor: boolean): number {
+  return secondFloor ? TABLES.length : BASE_TABLE_COUNT;
+}
+
+/** Grow the seat grid when the second floor unlocks more tables. */
+export function syncWorldSeats(world: World, secondFloor: boolean): void {
+  const n = tableCount(secondFloor);
+  while (world.seats.length < n) {
+    world.seats.push(new Array(SEATS_PER_TABLE).fill(false));
+  }
+}
 
 const SEAT_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [-13, 3],
@@ -142,7 +168,7 @@ export function createWorld(): World {
     cars: [],
     nextId: 1,
     machineBusy: [0, 0, 0, 0, 0],
-    seats: TABLES.map(() => new Array(SEATS_PER_TABLE).fill(false)),
+    seats: Array.from({ length: BASE_TABLE_COUNT }, () => new Array(SEATS_PER_TABLE).fill(false)),
     spawnCooldown: 0,
     carCooldown: 20,
   };
