@@ -230,6 +230,11 @@ export class AboutScreen implements Screen {
     else if (key === 'up') this.scroll = Math.max(0, this.scroll - 9);
     else if (key === 'back' || key === 'select') app.pop();
   }
+
+  onScroll(_app: App, dy: number): void {
+    const max = Math.max(0, this.height - (FULL.h - 10));
+    this.scroll = Math.max(0, Math.min(max, this.scroll + dy));
+  }
 }
 
 // --------------------------------------------------------------------- help
@@ -308,6 +313,12 @@ export class HelpScreen implements Screen {
     else if (key === 'left' || key === 'prevTab') this.turn(-1);
     else if (key === 'right' || key === 'nextTab') this.turn(1);
     else if (key === 'back' || key === 'select' || key === 'hint') app.pop();
+  }
+
+  onScroll(_app: App, dy: number): void {
+    const bodyH = FULL.h - 14;
+    const max = Math.max(0, this.height - bodyH + 6);
+    this.scroll = Math.max(0, Math.min(max, this.scroll + dy));
   }
 }
 
@@ -596,6 +607,12 @@ export class BriefingScreen implements Screen {
       app.cue('start');
       app.replace(new PlayScreen());
     }
+  }
+
+  onScroll(_app: App, dy: number): void {
+    const bodyH = FULL.h - 15 - 46;
+    const max = Math.max(0, this.height - bodyH + 6);
+    this.scroll = Math.max(0, Math.min(max, this.scroll + dy));
   }
 }
 

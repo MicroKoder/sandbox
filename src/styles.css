@@ -13,6 +13,10 @@
 
   --radius: 14px;
   --font-ui: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 * {
@@ -23,6 +27,7 @@ html,
 body {
   margin: 0;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -34,20 +39,27 @@ body {
   color: var(--ink);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 #app {
   height: 100%;
+  height: 100dvh;
   max-width: none;
   margin: 0;
-  padding: 16px 20px 18px;
+  padding:
+    max(12px, var(--safe-top))
+    max(16px, var(--safe-right))
+    max(12px, var(--safe-bottom))
+    max(16px, var(--safe-left));
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     'head head'
     'stage side';
-  gap: 14px 22px;
+  gap: 12px 20px;
 }
 
 /* ---------------------------------------------------------------- masthead */
@@ -55,15 +67,15 @@ body {
 .masthead {
   grid-area: head;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   min-height: 0;
 }
 
 .masthead h1 {
   margin: 0;
-  font-size: clamp(22px, 2.6vw, 34px);
+  font-size: clamp(20px, 2.4vw, 34px);
   font-weight: 800;
   letter-spacing: 0.02em;
   line-height: 1.05;
@@ -87,6 +99,24 @@ body {
   white-space: nowrap;
 }
 
+.help-toggle {
+  display: none;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #4a3c33;
+  background: linear-gradient(180deg, #3a2f28, #221b17);
+  color: var(--accent-2);
+  font: 700 20px/1 var(--font-ui);
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.help-toggle:active {
+  transform: scale(0.96);
+}
+
 /* ------------------------------------------------------------------- stage */
 
 .stage {
@@ -105,7 +135,7 @@ body {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 22px 50px -20px rgba(0, 0, 0, 0.85);
-  padding: 10px;
+  padding: 8px;
   display: flex;
 }
 
@@ -124,6 +154,7 @@ body {
   width: 100%;
   height: 100%;
   line-height: 0;
+  touch-action: none;
 }
 
 #game canvas {
@@ -142,6 +173,8 @@ body {
   gap: 12px;
   align-content: start;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .card {
@@ -218,45 +251,82 @@ kbd {
   color: var(--ink);
 }
 
-/* ------------------------------------------------------------- responsive */
+/* ------------------------------------------------------------- tablet / phone */
 
-@media (max-width: 980px) {
-  body {
-    overflow: auto;
-  }
-
+@media (max-width: 1100px), (pointer: coarse) and (max-width: 1400px) {
   #app {
-    height: auto;
-    min-height: 100%;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(52vh, 70vh) auto;
+    grid-template-rows: auto minmax(0, 1fr) 0fr;
     grid-template-areas:
       'head'
       'stage'
       'side';
-    overflow: visible;
+    gap: 8px;
+    padding:
+      max(8px, var(--safe-top))
+      max(10px, var(--safe-right))
+      max(8px, var(--safe-bottom))
+      max(10px, var(--safe-left));
+  }
+
+  .help-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .masthead {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    gap: 8px;
   }
 
   .tagline {
-    white-space: normal;
+    display: none;
   }
 
   .sidecar {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    overflow: visible;
+    display: none;
+    grid-template-columns: 1fr;
+    max-height: 42dvh;
+    padding-bottom: 4px;
+  }
+
+  #app.help-open {
+    grid-template-rows: auto minmax(0, 1fr) minmax(140px, 42dvh);
+  }
+
+  #app.help-open .sidecar {
+    display: grid;
+  }
+
+  .playfield {
+    border-radius: 12px;
+    padding: 6px;
   }
 }
 
-@media (max-width: 560px) {
+@media (orientation: landscape) and (max-height: 820px) {
+  .masthead h1 {
+    font-size: 18px;
+  }
+
+  .help-toggle {
+    width: 40px;
+    height: 40px;
+  }
+
   #app {
-    padding: 10px 10px 20px;
-    gap: 12px;
-    grid-template-rows: auto minmax(48vh, 62vh) auto;
+    padding-top: max(4px, var(--safe-top));
+    padding-bottom: max(4px, var(--safe-bottom));
+    gap: 6px;
+  }
+
+  #app.help-open {
+    grid-template-rows: auto minmax(0, 1fr) minmax(120px, 36dvh);
+  }
+}
+
+@media (max-width: 560px) and (orientation: portrait) {
+  .masthead h1 {
+    font-size: 18px;
   }
 }

@@ -20,6 +20,7 @@ class MainScene extends Phaser.Scene {
   private texture!: Phaser.Textures.CanvasTexture;
   private image!: Phaser.GameObjects.Image;
   private lastTime = 0;
+  private drag: { x: number; y: number; moved: boolean } | null = null;
 
   constructor() {
     super('main');
@@ -44,10 +45,44 @@ class MainScene extends Phaser.Scene {
     this.app.push(new SplashScreen());
 
     this.image.setInteractive({ useHandCursor: false });
-    this.image.on('pointerdown', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
-      // Phaser local coords are already in the unscaled texture space.
+    this.image.on('pointerdown', (pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      this.drag = { x: localX, y: localY, moved: false };
+      pointer.event?.preventDefault?.();
+    });
+    this.image.on('pointermove', (pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      if (!this.drag || !pointer.isDown) return;
+      const dy = localY - this.drag.y;
+      const dx = localX - this.drag.x;
+      if (!this.drag.moved && Math.hypot(dx, dy) < 3) return;
+      this.drag.moved = true;
+      // Finger down → content follows → reveal rows above (negative scroll).
+      this.app.scroll(localX, localY, -dy);
+      this.drag.x = localX;
+      this.drag.y = localY;
+    });
+    this.image.on('pointerup', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      const drag = this.drag;
+      this.drag = null;
+      if (!drag || drag.moved) return;
       this.app.tap(Math.floor(localX), Math.floor(localY));
     });
+    this.image.on('pointerupoutside', () => {
+      this.drag = null;
+    });
+
+    const canvas = this.game.canvas;
+    canvas.addEventListener(
+      'wheel',
+      (event) => {
+        event.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const lx = ((event.clientX - rect.left) / rect.width) * SCREEN_W;
+        const ly = ((event.clientY - rect.top) / rect.height) * SCREEN_H;
+        // Wheel down reveals lower rows.
+        this.app.scroll(lx, ly, event.deltaY);
+      },
+      { passive: false },
+    );
 
     this.lastTime = this.time.now;
     this.layout();
@@ -56,7 +91,8 @@ class MainScene extends Phaser.Scene {
 
   private layout(): void {
     const { width, height } = this.scale;
-    const zoom = Math.max(1, Math.floor(Math.min(width / SCREEN_W, height / SCREEN_H)));
+    // Continuous FIT fills tablets better than integer zoom with large letterboxing.
+    const zoom = Math.max(1, Math.min(width / SCREEN_W, height / SCREEN_H));
     const drawW = SCREEN_W * zoom;
     const drawH = SCREEN_H * zoom;
     this.image.setScale(zoom);
@@ -103,4 +139,18 @@ const game = new Phaser.Game({
 window.addEventListener('resize', () => {
   const { w, h } = stageSize();
   game.scale.resize(w, h);
+});
+
+// Collapsible help panel for tablets.
+const helpToggle = document.getElementById('help-toggle');
+const appRoot = document.getElementById('app');
+helpToggle?.addEventListener('click', () => {
+  const open = appRoot?.classList.toggle('help-open');
+  helpToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  helpToggle.textContent = open ? '✕' : '?';
+  // Phaser needs a resize after the stage reflows.
+  requestAnimationFrame(() => {
+    const { w, h } = stageSize();
+    game.scale.resize(w, h);
+  });
 });

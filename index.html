@@ -20,6 +20,7 @@
           <span class="logo-slice logo-accent">Пиццы</span>
         </h1>
         <p class="tagline">Экономическая стратегия &middot; веб-ремейк J2ME-оригинала 2004&nbsp;года</p>
+        <button type="button" class="help-toggle" id="help-toggle" aria-expanded="false" aria-controls="help-panel" title="Справка">?</button>
       </header>
 
       <main class="stage">
@@ -30,7 +31,7 @@
         </div>
       </main>
 
-      <aside class="sidecar">
+      <aside class="sidecar" id="help-panel">
         <section class="card">
           <h2>Управление</h2>
           <dl class="keys">
@@ -53,7 +54,10 @@
             <dt><kbd>7</kbd><kbd>9</kbd></dt>
             <dd>большая продажа / покупка</dd>
           </dl>
-          <p class="hint">Экран также реагирует на мышь и касания: вкладки справа, строки списка, нижняя панель.</p>
+          <p class="hint">
+            На планшете: касайтесь вкладок и строк, свайпайте списки вверх/вниз (ингредиенты, продукты,
+            цены). Кнопка «?» открывает эту справку.
+          </p>
         </section>
 
         <section class="card">

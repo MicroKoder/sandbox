@@ -23,11 +23,11 @@ export function softkeys(p: Painter, left?: string, right?: string, middle?: str
 /** Scrollbar drawn on the right edge of a list. */
 export function scrollbar(p: Painter, r: Rect, first: number, visible: number, total: number): void {
   if (total <= visible) return;
-  p.fill(r.x, r.y, 2, r.h, C.panelLo);
+  p.fill(r.x, r.y, r.w, r.h, C.panelLo);
   const barH = Math.max(4, Math.round((visible / total) * r.h));
   const maxTop = r.h - barH;
   const barY = r.y + Math.round((first / (total - visible)) * maxTop);
-  p.fill(r.x, barY, 2, barH, C.gold);
+  p.fill(r.x, barY, r.w, barH, C.gold);
 }
 
 export interface ListLayout {
