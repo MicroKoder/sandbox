@@ -342,7 +342,7 @@ function admitCustomer(ctx: SimContext, seed: number): void {
   const scare = litter > 0 ? litter * litter : 0;
   if (scare > 0 && rng.chance(scare)) {
     customer.mood = MOOD.scared;
-    leave(customer, w);
+    leave(ctx, customer);
     w.customers.push(customer);
     return;
   }
@@ -351,12 +351,12 @@ function admitCustomer(ctx: SimContext, seed: number): void {
     // Wants a table.
     if (!hasTables(s)) {
       customer.mood = MOOD.unserved;
-      leave(customer, w);
+      leave(ctx, customer);
     } else {
       const seat = freeSeat(w, (a, b) => rng.int(a, b));
       if (!seat) {
         customer.mood = MOOD.unserved;
-        leave(customer, w);
+        leave(ctx, customer);
       } else {
         w.seats[seat.table][seat.seat] = true;
         customer.table = seat.table;
@@ -371,7 +371,7 @@ function admitCustomer(ctx: SimContext, seed: number): void {
     const free = installedMachines(s).filter((i) => w.machineBusy[i] <= 0);
     if (free.length === 0) {
       customer.mood = MOOD.unserved;
-      leave(customer, w);
+      leave(ctx, customer);
     } else {
       const m = free[rng.int(0, free.length - 1)];
       customer.machine = m;
@@ -411,26 +411,26 @@ function updateCustomers(ctx: SimContext): void {
       case 'wait': {
         if (--c.timer <= 0) {
           c.mood = MOOD.unserved;
-          leave(c, w);
+          leave(ctx, c);
         }
         break;
       }
       case 'ordered': {
         if (--c.timer <= 0) {
           c.mood = MOOD.unserved;
-          leave(c, w);
+          leave(ctx, c);
         }
         break;
       }
       case 'served': {
-        if (--c.timer <= 0) leave(c, w);
+        if (--c.timer <= 0) leave(ctx, c);
         break;
       }
       case 'machine': {
         if (--c.timer <= 0) {
           payMachine(ctx, c.machine);
           c.mood = -1;
-          leave(c, w);
+          leave(ctx, c);
         }
         break;
       }
@@ -440,14 +440,14 @@ function updateCustomers(ctx: SimContext): void {
           w.customers.splice(i, 1);
           continue;
         }
-        dropLitter(ctx, c);
         break;
       }
     }
   }
 }
 
-function leave(c: Customer, w: World): void {
+function leave(ctx: SimContext, c: Customer): void {
+  const w = ctx.world;
   releaseSeat(w, c);
   c.state = 'leave';
   c.tx = DOOR.x;
@@ -456,17 +456,19 @@ function leave(c: Customer, w: World): void {
     c.bubble = c.mood;
     c.bubbleTimer = 90;
   }
+  // One roll when they stand up / head for the door (C.java:6728).
+  dropLitter(ctx, c);
 }
 
 function releaseSeat(w: World, c: Customer): void {
   if (c.table >= 0 && c.seat >= 0) w.seats[c.table][c.seat] = false;
 }
 
-/** 3 % chance per movement segment to drop a piece of litter (C.java:6728). */
+/** 3 % chance when finishing a walk segment / starting to leave (C.java:6728). */
 function dropLitter(ctx: SimContext, c: Customer): void {
   const { state: s, rng } = ctx;
   if (s.litter.length >= 16) return;
-  if (!rng.chance(0.35)) return;
+  if (!rng.chance(3)) return;
   s.litter.push({ x: Math.round(c.x), y: Math.round(c.y), kind: rng.int(0, 3) });
 }
 
@@ -823,7 +825,7 @@ function takeOrder(ctx: SimContext, c: Customer): void {
     c.bubble = -1;
   } else {
     c.mood = MOOD.tooExpensive;
-    leave(c, w);
+    leave(ctx, c);
   }
 }
 
@@ -836,7 +838,7 @@ function serve(ctx: SimContext, c: Customer): void {
 
   if (s.pizzaStock[choice] <= 0) {
     c.mood = MOOD.outOfStock;
-    leave(c, w);
+    leave(ctx, c);
     return;
   }
 

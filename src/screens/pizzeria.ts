@@ -201,12 +201,19 @@ function drawBin(p: Painter, x: number, y: number): void {
 }
 
 function drawLitter(p: Painter, x: number, y: number, kind: number): void {
-  const colors = ['#c9c0aa', '#9aa04a', '#c47a4a', '#8a8f9a'];
+  // Saturated scraps so they stay readable on the light floor.
+  const colors = ['#c44a2a', '#6a8a20', '#8a5a28', '#3a4a6a'];
   const color = colors[kind % colors.length];
-  p.px(x, y, color);
-  p.px(x + 1, y, color);
-  p.px(x, y + 1, color);
-  if (kind % 2 === 0) p.px(x + 2, y + 1, color);
+  const dark = '#1a1410';
+  p.fill(x - 1, y - 1, 4, 3, dark);
+  p.fill(x, y - 1, 2, 2, color);
+  p.px(x + 2, y, color);
+  if (kind % 2 === 0) {
+    p.px(x - 1, y + 1, color);
+    p.px(x + 1, y + 1, '#d8c48a');
+  } else {
+    p.px(x + 1, y + 1, color);
+  }
 }
 
 function drawWaitMark(p: Painter, x: number, y: number): void {
