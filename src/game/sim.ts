@@ -810,7 +810,7 @@ function pickAvailable(ctx: SimContext, menu: number[]): number {
 }
 
 function takeOrder(ctx: SimContext, c: Customer): void {
-  const { state: s, world: w, rng } = ctx;
+  const { state: s, rng } = ctx;
   const menu = ownedRecipes(s);
   if (menu.length === 0) return;
   const choice = pickAvailable(ctx, menu);
