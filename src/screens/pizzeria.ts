@@ -67,12 +67,12 @@ function drawBubble(p: Painter, mood: number, x: number, y: number): void {
 export function drawInterior(p: Painter, s: GameState, w: World, oy: number): void {
   const x0 = 0;
 
-  // Floor — cooler stone tiles so warm furniture and people read against it.
-  p.fill(x0, oy, ROOM_W, ROOM_H, '#3e3832');
+  // Floor — light cool linoleum vs dark grout tiles so warm wood furniture pops.
+  p.fill(x0, oy, ROOM_W, ROOM_H, '#2a2622');
   for (let ty = 0; ty < ROOM_H; ty += 8) {
     for (let tx = 0; tx < ROOM_W; tx += 8) {
       const alt = ((tx / 8 + ty / 8) | 0) % 2 === 0;
-      p.fill(x0 + tx, oy + ty, 8, 8, alt ? '#6a6256' : '#4a443c');
+      p.fill(x0 + tx, oy + ty, 8, 8, alt ? '#b8b0a4' : '#6e675c');
     }
   }
 
