@@ -9,6 +9,7 @@ import type { World } from '../game/entities.ts';
 import {
   TICKS_PER_HOUR,
   installedMachines,
+  isRaining,
   type GameState,
 } from '../game/state.ts';
 import { UPGRADE_SECOND_FLOOR, UPGRADE_TABLES } from '../data/content.ts';
@@ -234,43 +235,62 @@ function drawCar(p: Painter, car: Car, oy: number): void {
 
 // ---------------------------------------------------------------- exterior
 
-export function drawExterior(p: Painter, s: GameState, w: World, oy: number): void {
+export function drawExterior(p: Painter, s: GameState, w: World, oy: number, frame = 0): void {
   const hour = s.tick / TICKS_PER_HOUR;
   const night = hour < 6 || hour >= 21;
   const dusk = (hour >= 19 && hour < 21) || (hour >= 5 && hour < 7);
+  const rain = isRaining(s);
 
-  const skyTop = night ? '#141a2e' : dusk ? '#5b3a4a' : '#4f86b8';
-  const skyBottom = night ? '#242c40' : dusk ? '#c4703c' : '#9fc6e0';
+  let skyTop: string;
+  let skyBottom: string;
+  if (rain) {
+    skyTop = night ? '#0c1018' : '#2a3340';
+    skyBottom = night ? '#161c28' : '#4a5564';
+  } else {
+    skyTop = night ? '#141a2e' : dusk ? '#5b3a4a' : '#4f86b8';
+    skyBottom = night ? '#242c40' : dusk ? '#c4703c' : '#9fc6e0';
+  }
   p.gradientV(0, oy, ROOM_W, 78, skyTop, skyBottom);
 
-  // Sun or moon.
-  if (!night) {
-    const t = Math.max(0, Math.min(1, (hour - 6) / 15));
-    const sx = Math.round(14 + t * (ROOM_W - 28));
-    const sy = Math.round(58 - Math.sin(t * Math.PI) * 42);
-    p.fill(sx - 3, sy - 3, 7, 7, dusk ? '#ffb04a' : '#ffe9a8');
-    p.fill(sx - 4, sy - 2, 9, 5, dusk ? '#ffb04a' : '#ffe9a8');
-    p.fill(sx - 2, sy - 4, 5, 9, dusk ? '#ffb04a' : '#ffe9a8');
-  } else {
-    p.fill(ROOM_W - 34, oy + 14, 7, 7, '#e8ecf4');
-    p.fill(ROOM_W - 36, oy + 16, 4, 3, skyTop);
-    for (let i = 0; i < 12; i++) {
-      const sx = (i * 53) % ROOM_W;
-      const sy = oy + ((i * 29) % 50);
-      p.px(sx, sy, '#c9d4e8');
+  // Sun / moon / stars hide while it rains.
+  if (!rain) {
+    if (!night) {
+      const t = Math.max(0, Math.min(1, (hour - 6) / 15));
+      const sx = Math.round(14 + t * (ROOM_W - 28));
+      const sy = Math.round(58 - Math.sin(t * Math.PI) * 42);
+      p.fill(sx - 3, sy - 3, 7, 7, dusk ? '#ffb04a' : '#ffe9a8');
+      p.fill(sx - 4, sy - 2, 9, 5, dusk ? '#ffb04a' : '#ffe9a8');
+      p.fill(sx - 2, sy - 4, 5, 9, dusk ? '#ffb04a' : '#ffe9a8');
+    } else {
+      p.fill(ROOM_W - 34, oy + 14, 7, 7, '#e8ecf4');
+      p.fill(ROOM_W - 36, oy + 16, 4, 3, skyTop);
+      for (let i = 0; i < 12; i++) {
+        const sx = (i * 53) % ROOM_W;
+        const sy = oy + ((i * 29) % 50);
+        p.px(sx, sy, '#c9d4e8');
+      }
     }
+  } else {
+    // Soft cloud bands so the darker sky still has shape.
+    p.setAlpha(0.22);
+    for (let i = 0; i < 4; i++) {
+      const cx = ((i * 71 + Math.floor(frame / 40)) % (ROOM_W + 40)) - 20;
+      p.fill(cx, oy + 10 + i * 12, 48 + (i % 3) * 10, 8, '#1a222c');
+    }
+    p.setAlpha(1);
   }
 
   // Neighbouring rooftops.
-  p.fill(0, oy + 62, ROOM_W, 18, night ? '#1c2233' : '#6b6f80');
+  const roofNight = night || rain;
+  p.fill(0, oy + 62, ROOM_W, 18, roofNight ? '#1c2233' : '#6b6f80');
   for (let i = 0; i < 6; i++) {
-    const bx = i * 28;
+    const rbx = i * 28;
     const bh = 10 + ((i * 7) % 12);
-    p.fill(bx, oy + 74 - bh, 24, bh, night ? '#232a3d' : '#7b7f90');
+    p.fill(rbx, oy + 74 - bh, 24, bh, roofNight ? '#232a3d' : '#7b7f90');
     for (let wy = 0; wy < bh - 4; wy += 5) {
       for (let wx = 0; wx < 20; wx += 6) {
-        const lit = night && (i + wx + wy) % 3 === 0;
-        p.fill(bx + 2 + wx, oy + 76 - bh + wy, 3, 3, lit ? '#ffd97a' : night ? '#161c2b' : '#5d6172');
+        const lit = (night || rain) && (i + wx + wy) % 3 === 0;
+        p.fill(rbx + 2 + wx, oy + 76 - bh + wy, 3, 3, lit ? '#ffd97a' : roofNight ? '#161c2b' : '#5d6172');
       }
     }
   }
@@ -338,16 +358,16 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
   }
 
   // Pavement (people) and two-lane road (cars).
-  p.fill(0, oy + 96, ROOM_W, 22, '#8a8477');
-  p.hLine(0, oy + 96, ROOM_W, '#a29b8c');
-  for (let x = 0; x < ROOM_W; x += 12) p.vLine(x, oy + 96, 22, '#7a7568');
-  p.fill(0, oy + 118, ROOM_W, ROOM_H - 118, '#3d3a36');
+  p.fill(0, oy + 96, ROOM_W, 22, rain ? '#6e6a60' : '#8a8477');
+  p.hLine(0, oy + 96, ROOM_W, rain ? '#8a8477' : '#a29b8c');
+  for (let x = 0; x < ROOM_W; x += 12) p.vLine(x, oy + 96, 22, rain ? '#5a564e' : '#7a7568');
+  p.fill(0, oy + 118, ROOM_W, ROOM_H - 118, rain ? '#2e2c28' : '#3d3a36');
   // Kerbs.
-  p.hLine(0, oy + 118, ROOM_W, '#a29b8c');
+  p.hLine(0, oy + 118, ROOM_W, rain ? '#8a8477' : '#a29b8c');
   p.hLine(0, oy + 119, ROOM_W, '#5a564e');
   // Centre divider: above → left, below → right.
   const midY = oy + 144;
-  for (let x = 2; x < ROOM_W; x += 10) p.fill(x, midY, 6, 2, '#c9c0aa');
+  for (let x = 2; x < ROOM_W; x += 10) p.fill(x, midY, 6, 2, rain ? '#8a8060' : '#c9c0aa');
   // Edge dashes on each lane.
   for (let x = 4; x < ROOM_W; x += 16) {
     p.fill(x, oy + 126, 7, 1, '#7a7568');
@@ -365,9 +385,33 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number): vo
   const cars = [...w.cars].sort((a, b) => a.y - b.y);
   for (const car of cars) drawCar(p, car, oy);
 
-  if (night) {
+  if (rain) {
+    // Drips from the gutters when the drain upgrade is installed.
+    if (s.upgrades[2]) {
+      const drip = Math.floor(frame / 8) % 6;
+      p.px(bx + 2, oy + top + 20 + drip, '#9eb0c4');
+      p.px(bx + bw - 3, oy + top + 24 + ((drip + 3) % 6), '#9eb0c4');
+    }
+    drawRain(p, oy, frame);
+    p.setAlpha(0.16);
+    p.fill(0, oy, ROOM_W, ROOM_H, '#1a2430');
+    p.setAlpha(1);
+  } else if (night) {
     p.setAlpha(0.28);
     p.fill(0, oy, ROOM_W, ROOM_H, '#0a1024');
     p.setAlpha(1);
+  }
+}
+
+/** Sparse falling streaks — enough to read as rain, not a curtain. */
+function drawRain(p: Painter, oy: number, frame: number): void {
+  const drops = 14;
+  const fall = Math.floor(frame / 2);
+  for (let i = 0; i < drops; i++) {
+    const x = (i * 47 + Math.floor(fall / 3) * 3) % ROOM_W;
+    const y = (i * 73 + fall * 2) % ROOM_H;
+    p.px(x, oy + y, '#d0dcec');
+    p.px(x, oy + y + 1, '#b0c0d4');
+    p.px(x - 1, oy + y + 2, '#8aa0b8');
   }
 }

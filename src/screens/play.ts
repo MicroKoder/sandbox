@@ -322,7 +322,7 @@ export class PlayScreen implements Screen {
     if (!session) return;
     const oy = CONTENT.y + 11;
     p.pushClip({ x: CONTENT.x, y: oy, w: CONTENT.w, h: CONTENT.h - 11 });
-    if (this.sub === 0) drawExterior(p, s, session.world, oy);
+    if (this.sub === 0) drawExterior(p, s, session.world, oy, app.clock);
     else drawInterior(p, s, session.world, oy);
     p.popClip();
 
