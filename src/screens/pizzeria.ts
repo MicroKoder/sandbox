@@ -201,16 +201,16 @@ function drawBin(p: Painter, x: number, y: number): void {
 }
 
 function drawLitter(p: Painter, x: number, y: number, kind: number): void {
-  // Saturated scraps so they stay readable on the light floor.
-  const colors = ['#c44a2a', '#6a8a20', '#8a5a28', '#3a4a6a'];
+  // Light yellow / amber scraps — read as wrappers and crumbs on the floor.
+  const colors = ['#ffd15c', '#ffb43c', '#f0c840', '#e8a028'];
   const color = colors[kind % colors.length];
-  const dark = '#1a1410';
-  p.fill(x - 1, y - 1, 4, 3, dark);
+  const edge = '#c47a20';
+  p.fill(x - 1, y - 1, 4, 3, edge);
   p.fill(x, y - 1, 2, 2, color);
   p.px(x + 2, y, color);
   if (kind % 2 === 0) {
     p.px(x - 1, y + 1, color);
-    p.px(x + 1, y + 1, '#d8c48a');
+    p.px(x + 1, y + 1, '#ffe9a8');
   } else {
     p.px(x + 1, y + 1, color);
   }
