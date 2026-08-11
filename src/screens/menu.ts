@@ -18,7 +18,7 @@ import {
   scrollbar,
   softkeys,
 } from '../ui/widgets.ts';
-import { drawLogoMark, menuBackground, scrollText } from './common.ts';
+import { drawLogoMark, menuBackground, scrollEmotionsHelp, scrollText } from './common.ts';
 import { PlayScreen } from './play.ts';
 
 // ------------------------------------------------------------------- splash
@@ -274,7 +274,11 @@ export class HelpScreen implements Screen {
 
     const bodyY = titleY + 14;
     const bodyH = FULL.h - 14;
-    this.height = scrollText(p, chapter.text, 6, bodyY, SCREEN_W - 16, bodyH, this.scroll);
+    if (chapter.kind === 'emotions') {
+      this.height = scrollEmotionsHelp(p, 6, bodyY, SCREEN_W - 16, bodyH, this.scroll);
+    } else {
+      this.height = scrollText(p, chapter.text, 6, bodyY, SCREEN_W - 16, bodyH, this.scroll);
+    }
     scrollbar(
       p,
       { x: SCREEN_W - 4, y: bodyY, w: 2, h: bodyH },
