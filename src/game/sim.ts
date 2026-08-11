@@ -10,6 +10,7 @@ import {
   tableCount,
   DOOR,
   KITCHEN_Y,
+  COOK_Y,
   OVEN_XS,
   ROOM_W,
   TABLES,
@@ -218,6 +219,9 @@ function updateStreet(ctx: SimContext): void {
       dir,
       decided: false,
       entering: false,
+      leaving: false,
+      mood: -1,
+      moodTimer: 0,
       anim: 0,
     });
     w.spawnCooldown = 5;
@@ -225,6 +229,25 @@ function updateStreet(ctx: SimContext): void {
 
   for (let i = w.walkers.length - 1; i >= 0; i--) {
     const p = w.walkers[i];
+    if (p.moodTimer > 0) p.moodTimer--;
+
+    // Guests leaving the building: step down onto the pavement, then walk off.
+    if (p.leaving) {
+      const speed = 0.45;
+      p.anim += speed;
+      const pavementY = 110;
+      if (p.y < pavementY - 0.5) {
+        p.y = Math.min(pavementY, p.y + speed);
+        if (Math.abs(p.x - DOOR_STREET.x) > 0.3) {
+          p.dir = p.x < DOOR_STREET.x ? 1 : -1;
+          p.x += p.dir * speed * 0.3;
+        }
+      } else {
+        p.x += p.dir * speed;
+      }
+      if (p.x < -14 || p.x > ROOM_W + 14) w.walkers.splice(i, 1);
+      continue;
+    }
 
     // After choosing to come in, walk up the pavement to the door, then enter.
     if (p.entering) {
@@ -443,6 +466,7 @@ function updateCustomers(ctx: SimContext): void {
       case 'leave': {
         if (step(c, CUSTOMER_SPEED)) {
           applyMood(ctx, c);
+          spawnLeavingWalker(ctx, c);
           w.customers.splice(i, 1);
           continue;
         }
@@ -464,6 +488,26 @@ function leave(ctx: SimContext, c: Customer): void {
   }
   // One roll when they stand up / head for the door (C.java:6728).
   dropLitter(ctx, c);
+}
+
+/** Guest appears outside the door with the same mood face, then walks away. */
+function spawnLeavingWalker(ctx: SimContext, c: Customer): void {
+  const { world: w, rng } = ctx;
+  const dir: 1 | -1 = rng.chance(50) ? 1 : -1;
+  const mood = c.mood >= 0 ? c.mood : c.bubble >= 0 ? c.bubble : -1;
+  w.walkers.push({
+    id: w.nextId++,
+    seed: c.seed,
+    x: DOOR_STREET.x,
+    y: DOOR_STREET.y,
+    dir,
+    decided: true,
+    entering: false,
+    leaving: true,
+    mood,
+    moodTimer: mood >= 0 ? 140 : 0,
+    anim: 0,
+  });
 }
 
 function releaseSeat(w: World, c: Customer): void {
@@ -576,7 +620,7 @@ function spawnStaff(ctx: SimContext): void {
 function staffStation(type: number, rng: Rng): { x: number; y: number } {
   switch (type) {
     case 0:
-      return { x: OVEN_XS[rng.int(0, OVEN_XS.length - 1)], y: KITCHEN_Y + 12 };
+      return { x: OVEN_XS[rng.int(0, OVEN_XS.length - 1)], y: COOK_Y };
     case 1:
       return { x: 90, y: KITCHEN_Y + 20 };
     case 3:
@@ -657,7 +701,7 @@ function updateCook(ctx: SimContext, st: Staff, speed: number): void {
   if (st.state === 'idle') {
     const oven = OVEN_XS[rng.int(0, OVEN_XS.length - 1)];
     st.tx = oven;
-    st.ty = KITCHEN_Y + 12;
+    st.ty = COOK_Y;
     st.state = 'toOven';
     return;
   }

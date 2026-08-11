@@ -98,11 +98,20 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
     p.hLine(x0 + ox - 5, oy + 24, 10, '#8a6a44');
   }
 
+  // Cooks behind the counter are drawn under the counter top; cooks still
+  // crossing the dining room use the normal depth sort below.
+  for (const st of w.staff) {
+    if (st.type !== 0 || st.y > KITCHEN_Y) continue;
+    const moving = st.state !== 'busy' && st.state !== 'idle';
+    drawStaffMember(p, st.type, x0 + st.x, oy + st.y, poseOf(st.anim, moving), st.facing);
+  }
+
   // Counter — stretches across the kitchen side of the wider room.
   const counterX = Math.floor(ROOM_W * 0.55);
   const counterW = ROOM_W - counterX - 6;
   p.fill(x0 + counterX, oy + KITCHEN_Y - 6, counterW, 6, '#8a6034');
   p.hLine(x0 + counterX, oy + KITCHEN_Y - 6, counterW, '#b8834a');
+  drawPizzaBoxStacks(p, x0 + counterX + 4, oy + KITCHEN_Y - 7, totalPizzaStock(s));
 
   // Vending machines.
   for (const m of installedMachines(s)) {
@@ -153,6 +162,7 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
   }
 
   for (const st of w.staff) {
+    if (st.type === 0 && st.y <= KITCHEN_Y) continue; // already behind the counter
     drawables.push({
       y: st.y,
       draw: () => {
@@ -177,6 +187,29 @@ function drawTable(p: Painter, x: number, y: number): void {
   // Two stools.
   p.fill(x - 14, y + 2, 4, 3, '#5c3d22');
   p.fill(x + 10, y + 2, 4, 3, '#5c3d22');
+}
+
+/** One on-counter box stands for five pizzas in stock; at most four stacks of four. */
+function totalPizzaStock(s: GameState): number {
+  return s.pizzaStock.reduce((sum, n) => sum + n, 0);
+}
+
+function drawPizzaBoxStacks(p: Painter, x: number, y: number, stock: number): void {
+  const maxStacks = 4;
+  const maxPerStack = 4;
+  let boxes = Math.min(Math.floor(stock / 5), maxStacks * maxPerStack);
+  for (let stack = 0; stack < maxStacks && boxes > 0; stack++) {
+    const n = Math.min(maxPerStack, boxes);
+    boxes -= n;
+    const sx = x + stack * 11;
+    for (let i = 0; i < n; i++) {
+      const by = y - i * 2;
+      // Flat cardboard strip — a pizza box seen edge-on.
+      p.fill(sx, by, 9, 2, i % 2 === 0 ? '#e8d4a8' : '#dfc895');
+      p.hLine(sx, by, 9, '#a8844a');
+      p.px(sx + 8, by + 1, '#8a6a38');
+    }
+  }
 }
 
 function drawMachine(p: Painter, x: number, y: number, index: number): void {
@@ -380,6 +413,9 @@ export function drawExterior(p: Painter, s: GameState, w: World, oy: number, fra
   const walkers = [...w.walkers].sort((a, b) => a.y - b.y);
   for (const walker of walkers) {
     drawVisitor(p, walker.seed, walker.x, oy + walker.y, poseOf(walker.anim, true), walker.dir);
+    if (walker.moodTimer > 0 && walker.mood >= 0) {
+      drawBubble(p, walker.mood, walker.x, oy + walker.y);
+    }
   }
 
   // Cars: top lane leftbound, bottom lane rightbound.

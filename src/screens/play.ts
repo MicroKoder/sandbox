@@ -133,7 +133,7 @@ interface ListRow {
 
 export class PlayScreen implements Screen {
   private tab = 0;
-  private sub = 0;
+  private sub = 1;
   /** Employee category shown by the staff tab. */
   private staffKind = 0;
   private cursor: number[] = new Array(TAB_COUNT).fill(0);
@@ -836,7 +836,7 @@ export class PlayScreen implements Screen {
 
   private switchTab(app: App, delta: number): void {
     this.tab = (this.tab + delta + TAB_COUNT) % TAB_COUNT;
-    this.sub = 0;
+    this.sub = this.tab === TAB_PIZZERIA ? 1 : 0;
     this.tabFocus = false;
     app.cue('select');
   }
@@ -860,11 +860,11 @@ export class PlayScreen implements Screen {
   private tabStripKey(app: App, key: Key): void {
     if (key === 'up') {
       this.tab = (this.tab + TAB_COUNT - 1) % TAB_COUNT;
-      this.sub = 0;
+      this.sub = this.tab === TAB_PIZZERIA ? 1 : 0;
       app.cue('select');
     } else if (key === 'down') {
       this.tab = (this.tab + 1) % TAB_COUNT;
-      this.sub = 0;
+      this.sub = this.tab === TAB_PIZZERIA ? 1 : 0;
       app.cue('select');
     } else if (key === 'select' || key === 'left') {
       this.tabFocus = false;
@@ -1039,7 +1039,7 @@ export class PlayScreen implements Screen {
       const index = Math.floor((y - TAB_TOP) / TAB_H);
       if (index !== this.tab) {
         this.tab = index;
-        this.sub = 0;
+        this.sub = index === TAB_PIZZERIA ? 1 : 0;
         app.cue('select');
       }
       this.tabFocus = false;
