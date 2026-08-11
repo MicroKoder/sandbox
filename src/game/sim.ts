@@ -397,6 +397,8 @@ function updateCustomers(ctx: SimContext): void {
     switch (c.state) {
       case 'enter': {
         if (step(c, CUSTOMER_SPEED)) {
+          // One litter roll per completed walk segment (arriving at seat/machine).
+          dropLitter(ctx, c);
           if (c.machine >= 0) {
             c.state = 'machine';
             c.timer = 20;
@@ -405,7 +407,6 @@ function updateCustomers(ctx: SimContext): void {
             c.timer = PATIENCE;
           }
         }
-        dropLitter(ctx, c);
         break;
       }
       case 'wait': {
@@ -464,11 +465,15 @@ function releaseSeat(w: World, c: Customer): void {
   if (c.table >= 0 && c.seat >= 0) w.seats[c.table][c.seat] = false;
 }
 
-/** 3 % chance when finishing a walk segment / starting to leave (C.java:6728). */
+/**
+ * Litter roll when a guest finishes walking to a seat or starts to leave
+ * (C.java:6728 — originally 3 % per segment). Bins cut the chance in half.
+ */
 function dropLitter(ctx: SimContext, c: Customer): void {
   const { state: s, rng } = ctx;
   if (s.litter.length >= 16) return;
-  if (!rng.chance(3)) return;
+  const chance = s.upgrades[3] ? 2 : 3;
+  if (!rng.chance(chance)) return;
   s.litter.push({ x: Math.round(c.x), y: Math.round(c.y), kind: rng.int(0, 3) });
 }
 
@@ -831,7 +836,7 @@ function takeOrder(ctx: SimContext, c: Customer): void {
 
 /** The whole basket: one pizza order plus a run of add-on products (C.java:5411). */
 function serve(ctx: SimContext, c: Customer): void {
-  const { state: s, world: w, rng } = ctx;
+  const { state: s, rng } = ctx;
   const menu = ownedRecipes(s);
   if (menu.length === 0) return;
   const choice = pickAvailable(ctx, menu);
