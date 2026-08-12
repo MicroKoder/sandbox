@@ -13,9 +13,11 @@ import {
   formatMoney,
   formatRating,
   header,
+  headerHelpHit,
   listWindow,
   row,
   scrollbar,
+  softkeyHit,
   softkeys,
   uiHover,
 } from '../ui/widgets.ts';
@@ -158,12 +160,18 @@ export class SettingsScreen implements Screen {
     softkeys(p, S.back);
   }
 
-  click(app: App, _x: number, y: number): void {
-    const index = Math.floor((y - 30) / 20);
-    if (index < 0 || index > 3) {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
       this.key(app, 'back');
       return;
     }
+    const index = Math.floor((y - 30) / 20);
+    if (index < 0 || index > 3) return;
     this.index = index;
     this.key(app, 'select');
   }
@@ -265,7 +273,7 @@ export class HelpScreen implements Screen {
 
   draw(_app: App, p: Painter): void {
     p.clear(C.bg);
-    header(p, S.help);
+    header(p, S.help, { help: false });
 
     const chapter = this.current;
     const titleY = FULL.y;
@@ -367,10 +375,18 @@ export class RecordsScreen implements Screen {
     }
   }
 
-  click(app: App, _x: number, y: number): void {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      app.pop();
+      return;
+    }
     const index = this.first + Math.floor((y - (FULL.y + 2)) / 14);
     if (index >= 0 && index < MISSION_COUNT) this.index = index;
-    else app.pop();
   }
 
   key(app: App, key: Key): void {
@@ -402,7 +418,20 @@ export class GameTypeScreen implements Screen {
     softkeys(p, S.back, S.next);
   }
 
-  click(app: App, _x: number, y: number): void {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      this.key(app, 'back');
+      return;
+    }
+    if (sk === 'right') {
+      this.key(app, 'select');
+      return;
+    }
     const index = Math.floor((y - 76) / 22);
     if (index < 0 || index > 1) return;
     this.index = index;
@@ -478,8 +507,20 @@ export class NameScreen implements Screen {
     this.value = this.value.slice(0, -1);
   }
 
-  click(app: App): void {
-    this.key(app, 'select');
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      this.key(app, 'back');
+      return;
+    }
+    if (sk === 'right') {
+      this.key(app, 'select');
+      return;
+    }
   }
 
   key(app: App, key: Key): void {
@@ -527,7 +568,20 @@ export class MissionSelectScreen implements Screen {
     softkeys(p, S.back, S.next);
   }
 
-  click(app: App, _x: number, y: number): void {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      this.key(app, 'back');
+      return;
+    }
+    if (sk === 'right') {
+      this.key(app, 'select');
+      return;
+    }
     const index = this.first + Math.floor((y - (FULL.y + 2)) / 14);
     if (index < 0 || index >= MISSION_COUNT) return;
     if (index === this.index) this.key(app, 'select');
@@ -588,6 +642,10 @@ export class BriefingScreen implements Screen {
   }
 
   click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
     if (y >= SCREEN_H - 13) {
       this.key(app, x > SCREEN_W / 2 ? 'select' : 'back');
       return;

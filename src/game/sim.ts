@@ -11,6 +11,7 @@ import {
   DOOR,
   KITCHEN_Y,
   COOK_Y,
+  COUNTER_X,
   OVEN_XS,
   ROOM_W,
   TABLES,
@@ -590,12 +591,13 @@ function updateMachines(w: World): void {
 function spawnStaff(ctx: SimContext): void {
   const { state: s, world: w, rng } = ctx;
   w.staff = [];
+  let waiterIndex = 0;
   for (const c of s.candidates) {
     if (!c.hired) continue;
-    // Drivers are out on the road all day and never appear in the dining room,
+    // Couriers are out on the road all day and never appear in the dining room,
     // exactly as in the original.
     if (c.type === 2) continue;
-    const home = staffStation(c.type, rng);
+    const home = staffStation(c.type, rng, c.type === 1 ? waiterIndex++ : 0);
     w.staff.push({
       kind: 'staff',
       id: w.nextId++,
@@ -607,6 +609,8 @@ function spawnStaff(ctx: SimContext): void {
       y: DOOR.y,
       tx: home.x,
       ty: home.y,
+      homeX: home.x,
+      homeY: home.y,
       state: 'arrive',
       timer: rng.int(0, 300),
       target: -1,
@@ -617,12 +621,13 @@ function spawnStaff(ctx: SimContext): void {
   }
 }
 
-function staffStation(type: number, rng: Rng): { x: number; y: number } {
+function staffStation(type: number, rng: Rng, index = 0): { x: number; y: number } {
   switch (type) {
     case 0:
       return { x: OVEN_XS[rng.int(0, OVEN_XS.length - 1)], y: COOK_Y };
     case 1:
-      return { x: 90, y: KITCHEN_Y + 20 };
+      // Stand by the pizza stacks on the counter; second waiter stands just beside.
+      return { x: COUNTER_X + 18 + index * 14, y: KITCHEN_Y + 10 };
     case 3:
       return { x: 60, y: 132 };
     case 4:
@@ -810,13 +815,13 @@ function updateWaiter(ctx: SimContext, st: Staff, speed: number): void {
       return;
     }
     if (w.customers.some((c) => c.state === 'ordered')) {
-      st.tx = 96;
-      st.ty = KITCHEN_Y + 14;
+      st.tx = COUNTER_X + 24;
+      st.ty = KITCHEN_Y + 12;
       st.state = 'toKitchen';
       return;
     }
-    st.tx = 90;
-    st.ty = KITCHEN_Y + 20;
+    st.tx = st.homeX;
+    st.ty = st.homeY;
     step(st, speed);
     return;
   }

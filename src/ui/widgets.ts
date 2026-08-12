@@ -25,10 +25,12 @@ export function paintHover(p: Painter, x: number, y: number, w: number, h: numbe
 }
 
 /** Title strip drawn at the top of menu-style screens. */
-export function header(p: Painter, title: string): void {
+export function header(p: Painter, title: string, opts?: { help?: boolean }): void {
   p.gradientV(0, 0, SCREEN_W, TOP_BAR_H, C.panelHi, C.panel);
   p.hLine(0, TOP_BAR_H - 1, SCREEN_W, C.line);
+  const showHelp = opts?.help !== false;
   p.text(title, SCREEN_W / 2, 3, C.gold, 'center');
+  if (showHelp) drawHelpButton(p, HELP_BTN.x, HELP_BTN.y);
 }
 
 /** Soft-key strip drawn at the bottom of every screen. */
@@ -45,6 +47,29 @@ export function softkeys(p: Painter, left?: string, right?: string, middle?: str
   if (left) p.text(left, 3, y + 3, C.ink);
   if (right) p.text(right, SCREEN_W - 3, y + 3, C.ink, 'right');
   if (middle) p.text(middle, SCREEN_W / 2, y + 3, C.inkDim, 'center');
+}
+
+/** Which soft-key zone was hit, if the tap landed on the bottom bar. */
+export function softkeyHit(x: number, y: number): 'left' | 'middle' | 'right' | null {
+  if (y < SCREEN_H - BOTTOM_BAR_H) return null;
+  const third = SCREEN_W / 3;
+  if (x < third) return 'left';
+  if (x > SCREEN_W - third) return 'right';
+  return 'middle';
+}
+
+/** Hit box for the `?` help control in headers / the play top bar. */
+export const HELP_BTN = { x: SCREEN_W - 14, y: 1, w: 12, h: 10 } as const;
+
+export function headerHelpHit(x: number, y: number): boolean {
+  return x >= HELP_BTN.x && x < HELP_BTN.x + HELP_BTN.w && y >= HELP_BTN.y && y < HELP_BTN.y + HELP_BTN.h;
+}
+
+export function drawHelpButton(p: Painter, x: number, y: number): void {
+  const hovered = uiHover(x, y, HELP_BTN.w, HELP_BTN.h);
+  p.panel(x, y, HELP_BTN.w, HELP_BTN.h, { fill: hovered ? C.selBg : C.panelHi, raised: true });
+  p.stroke(x, y, HELP_BTN.w, HELP_BTN.h, hovered ? C.gold : C.line);
+  p.text('?', x + HELP_BTN.w / 2, y + 2, hovered ? C.selInk : C.gold, 'center');
 }
 
 /** Scrollbar drawn on the right edge of a list. */

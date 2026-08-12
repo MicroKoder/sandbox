@@ -136,6 +136,8 @@ test('two waiters do not claim the same waiting table', () => {
       carrying: false,
       facing: 1,
       anim: 0,
+      homeX: x,
+      homeY: y,
     });
   };
   mkStaff(waiters[0], 40, 100);
@@ -266,6 +268,8 @@ test('staff keep working after close until guests and litter are gone', () => {
       y,
       tx: x,
       ty: y,
+      homeX: x,
+      homeY: y,
       state: 'idle',
       timer: 0,
       target: -1,

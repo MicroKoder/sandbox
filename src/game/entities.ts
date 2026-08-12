@@ -15,6 +15,8 @@ export const KITCHEN_Y = 34;
 export const OVEN_XS = [ROOM_W - 46, ROOM_W - 32, ROOM_W - 18];
 /** Cooks stand behind the counter, in the kitchen band. */
 export const COOK_Y = KITCHEN_Y - 5;
+/** Left edge of the service counter (pizza box stacks sit on top). */
+export const COUNTER_X = Math.floor(ROOM_W * 0.55);
 
 /** The original stored tables on a coarse tile grid; these are the pixel centres. */
 const TILE_X: Record<number, number> = {
@@ -113,6 +115,9 @@ export interface Staff {
   y: number;
   tx: number;
   ty: number;
+  /** Idle station the worker returns to. */
+  homeX: number;
+  homeY: number;
   state: StaffState;
   timer: number;
   target: number;

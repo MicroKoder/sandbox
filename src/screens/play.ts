@@ -62,9 +62,12 @@ import type { Key } from '../ui/input.ts';
 import {
   adjustButtons,
   dialog,
+  drawHelpButton,
   fieldLine,
   formatMoney,
   formatRating,
+  HELP_BTN,
+  headerHelpHit,
   listWindow,
   notice,
   paintHover,
@@ -144,6 +147,8 @@ export class PlayScreen implements Screen {
   private message: string | null = null;
   private messageTimer = 0;
   private accumulator = 0;
+  /** Speed restored when leaving pause. */
+  private lastSpeed: Speed = 1;
   /** Hit boxes for the ±quantity / ±price buttons drawn in the detail pane. */
   private adjustHits: AdjustButtonHit[] = [];
   /** Pixel remainder while dragging/wheeling the list. */
@@ -229,32 +234,49 @@ export class PlayScreen implements Screen {
     const running = this.timeRunning(s);
     p.text(clockOf(s), 3, 3, running ? C.ink : C.inkDim);
 
-    // Speed: three pips while the clock runs, a pause bar while it is stopped.
-    if (!running) {
-      p.fill(29, 4, 2, 5, C.tomato);
-      p.fill(33, 4, 2, 5, C.tomato);
+    // Pause button (separate from speed).
+    const pause = { x: 28, y: 1, w: 11, h: 10 };
+    const pauseHover = uiHover(pause.x, pause.y, pause.w, pause.h);
+    p.panel(pause.x, pause.y, pause.w, pause.h, { fill: pauseHover ? C.selBg : C.panelHi, raised: true });
+    p.stroke(pause.x, pause.y, pause.w, pause.h, pauseHover ? C.gold : s.speed === 0 ? C.tomato : C.line);
+    if (s.speed === 0) {
+      // Play triangle.
+      p.fill(pause.x + 4, pause.y + 2, 1, 6, C.gold);
+      p.fill(pause.x + 5, pause.y + 3, 1, 4, C.gold);
+      p.fill(pause.x + 6, pause.y + 4, 1, 2, C.gold);
     } else {
-      for (let i = 0; i < 3; i++) {
-        p.fill(29 + i * 4, 4, 3, 5, s.speed > i ? C.gold : C.panelLo);
-      }
+      // Pause bars.
+      p.fill(pause.x + 3, pause.y + 2, 2, 6, C.gold);
+      p.fill(pause.x + 6, pause.y + 2, 2, 6, C.gold);
     }
-    p.vLine(42, 2, 8, C.lineSoft);
 
-    p.text(`Д${s.day + 1}/${missionOf(s).days}`, 46, 3, C.inkDim);
-    p.vLine(70, 2, 8, C.lineSoft);
-    p.text(formatRating(s.rating), 74, 3, C.sky);
+    // Speed cycle button — shows current (or last) rate.
+    const speed = { x: 41, y: 1, w: 18, h: 10 };
+    const shown = (s.speed === 0 ? this.lastSpeed : s.speed) || 1;
+    const speedHover = uiHover(speed.x, speed.y, speed.w, speed.h);
+    p.panel(speed.x, speed.y, speed.w, speed.h, { fill: speedHover ? C.selBg : C.panelHi, raised: true });
+    p.stroke(speed.x, speed.y, speed.w, speed.h, speedHover ? C.gold : C.line);
+    p.text(`x${shown}`, speed.x + speed.w / 2, speed.y + 2, speedHover ? C.selInk : C.gold, 'center');
+
+    p.vLine(62, 2, 8, C.lineSoft);
+    p.text(`Д${s.day + 1}/${missionOf(s).days}`, 65, 3, C.inkDim);
+    p.vLine(89, 2, 8, C.lineSoft);
+    p.text(formatRating(s.rating), 93, 3, C.sky);
 
     // Amber once the till no longer covers tonight's wages and advertising bill.
     const due = dailySalary(s) + dailyAdCost(s);
     const shortOfBills = due > 0 && s.money < due;
+    const moneyX = HELP_BTN.x - 4;
     p.text(
       `${formatMoney(s.money)}$`,
-      SCREEN_W - 3,
+      moneyX,
       3,
       s.money < 0 ? C.tomato : shortOfBills ? C.warn : C.money,
       'right',
     );
-    if (shortOfBills) p.text('!', SCREEN_W - 3 - p.measure(`${formatMoney(s.money)}$`) - 5, 3, C.tomato);
+    if (shortOfBills) p.text('!', moneyX - p.measure(`${formatMoney(s.money)}$`) - 5, 3, C.tomato);
+
+    drawHelpButton(p, HELP_BTN.x, HELP_BTN.y);
   }
 
   private drawTabStrip(p: Painter, s: GameState, nudge: boolean): void {
@@ -789,11 +811,22 @@ export class PlayScreen implements Screen {
 
     switch (key) {
       case 'speedDown':
-        s.speed = Math.max(0, s.speed - 1) as Speed;
+        if (s.speed > 1) {
+          s.speed = (s.speed - 1) as Speed;
+          this.lastSpeed = s.speed;
+        } else if (s.speed === 1) {
+          this.lastSpeed = 1;
+          s.speed = 0;
+        }
         app.cue('select');
         return;
       case 'speedUp':
-        s.speed = Math.min(3, s.speed + 1) as Speed;
+        if (s.speed === 0) {
+          s.speed = Math.min(3, Math.max(1, this.lastSpeed)) as Speed;
+        } else {
+          s.speed = Math.min(3, s.speed + 1) as Speed;
+        }
+        this.lastSpeed = s.speed;
         app.cue('select');
         return;
       case 'hint':
@@ -1052,10 +1085,30 @@ export class PlayScreen implements Screen {
       return;
     }
 
-    // Status bar: tap the clock area to pause or resume.
-    if (y < TOP_BAR_H && x < 44) {
-      s.speed = s.speed === 0 ? 1 : 0;
-      app.cue('select');
+    // Top bar controls: help, pause, speed.
+    if (y < TOP_BAR_H) {
+      if (headerHelpHit(x, y)) {
+        app.push(new HelpScreen(HELP_BOOK, helpPageForTab(this.tab)));
+        app.cue('select');
+        return;
+      }
+      if (x >= 28 && x < 39) {
+        if (s.speed === 0) s.speed = (this.lastSpeed || 1) as Speed;
+        else {
+          this.lastSpeed = s.speed;
+          s.speed = 0;
+        }
+        app.cue('select');
+        return;
+      }
+      if (x >= 41 && x < 59) {
+        const base = s.speed === 0 ? this.lastSpeed || 1 : s.speed;
+        const next = (base >= 3 ? 1 : base + 1) as Speed;
+        this.lastSpeed = next;
+        s.speed = next;
+        app.cue('select');
+        return;
+      }
       return;
     }
 

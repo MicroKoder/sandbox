@@ -4,7 +4,7 @@ import { getMoodIcons } from '../art/icons.ts';
 import { deliveryVanSprite, trafficCarSprite } from '../art/cars.ts';
 import { drawPerson, visitorLook, STAFF_LOOKS, type Pose } from '../art/people.ts';
 import { ctxOf, makeCanvas } from '../art/pixel.ts';
-import { DOOR, KITCHEN_Y, OVEN_XS, ROOM_H, ROOM_W, TABLES, machinePos, tableCount, type Car } from '../game/entities.ts';
+import { DOOR, KITCHEN_Y, COUNTER_X, OVEN_XS, ROOM_H, ROOM_W, TABLES, machinePos, tableCount, type Car } from '../game/entities.ts';
 import type { World } from '../game/entities.ts';
 import {
   TICKS_PER_HOUR,
@@ -107,7 +107,7 @@ export function drawInterior(p: Painter, s: GameState, w: World, oy: number): vo
   }
 
   // Counter — stretches across the kitchen side of the wider room.
-  const counterX = Math.floor(ROOM_W * 0.55);
+  const counterX = COUNTER_X;
   const counterW = ROOM_W - counterX - 6;
   p.fill(x0 + counterX, oy + KITCHEN_Y - 6, counterW, 6, '#8a6034');
   p.hLine(x0 + counterX, oy + KITCHEN_Y - 6, counterW, '#b8834a');
