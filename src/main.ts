@@ -11,14 +11,16 @@ const TEXTURE_KEY = 'screen';
 
 /**
  * Phaser hosts the game loop, scaling, input plumbing and texture upload; the
- * game itself paints every frame into one 176x208 canvas, exactly like the
- * MIDlet did with its off-screen `Image`.
+ * game paints every frame into one logical canvas (wide 320×200), then FIT-scales
+ * it into the browser stage like a modern web game.
  */
 class MainScene extends Phaser.Scene {
   private app!: App;
   private painter!: Painter;
   private texture!: Phaser.Textures.CanvasTexture;
+  private image!: Phaser.GameObjects.Image;
   private lastTime = 0;
+  private drag: { x: number; y: number; moved: boolean } | null = null;
 
   constructor() {
     super('main');
@@ -33,8 +35,8 @@ class MainScene extends Phaser.Scene {
     ctx.imageSmoothingEnabled = false;
     this.painter = new Painter(ctx, SCREEN_W, SCREEN_H);
 
-    const image = this.add.image(0, 0, TEXTURE_KEY).setOrigin(0, 0);
-    image.setScrollFactor(0);
+    this.image = this.add.image(0, 0, TEXTURE_KEY).setOrigin(0, 0);
+    this.image.setScrollFactor(0);
 
     const input = new Input();
     input.attach(window);
@@ -42,12 +44,64 @@ class MainScene extends Phaser.Scene {
     this.app = new App(input, new SoundBank());
     this.app.push(new SplashScreen());
 
-    image.setInteractive({ useHandCursor: false });
-    image.on('pointerdown', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+    this.image.setInteractive({ useHandCursor: false });
+    this.image.on('pointerdown', (pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      this.drag = { x: localX, y: localY, moved: false };
+      pointer.event?.preventDefault?.();
+    });
+    this.image.on('pointermove', (pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      this.app.hover(Math.floor(localX), Math.floor(localY));
+      if (!this.drag || !pointer.isDown) return;
+      const dy = localY - this.drag.y;
+      const dx = localX - this.drag.x;
+      if (!this.drag.moved && Math.hypot(dx, dy) < 3) return;
+      this.drag.moved = true;
+      // Finger down → content follows → reveal rows above (negative scroll).
+      this.app.scroll(localX, localY, -dy);
+      this.drag.x = localX;
+      this.drag.y = localY;
+    });
+    this.image.on('pointerout', () => {
+      this.app.clearHover();
+    });
+    this.image.on('pointerup', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      const drag = this.drag;
+      this.drag = null;
+      if (!drag || drag.moved) return;
       this.app.tap(Math.floor(localX), Math.floor(localY));
     });
+    this.image.on('pointerupoutside', () => {
+      this.drag = null;
+      this.app.clearHover();
+    });
+
+    const canvas = this.game.canvas;
+    canvas.addEventListener(
+      'wheel',
+      (event) => {
+        event.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const lx = ((event.clientX - rect.left) / rect.width) * SCREEN_W;
+        const ly = ((event.clientY - rect.top) / rect.height) * SCREEN_H;
+        // Wheel down reveals lower rows.
+        this.app.scroll(lx, ly, event.deltaY);
+      },
+      { passive: false },
+    );
 
     this.lastTime = this.time.now;
+    this.layout();
+    this.scale.on('resize', () => this.layout());
+  }
+
+  private layout(): void {
+    const { width, height } = this.scale;
+    // Continuous FIT fills tablets better than integer zoom with large letterboxing.
+    const zoom = Math.max(1, Math.min(width / SCREEN_W, height / SCREEN_H));
+    const drawW = SCREEN_W * zoom;
+    const drawH = SCREEN_H * zoom;
+    this.image.setScale(zoom);
+    this.image.setPosition(Math.floor((width - drawW) / 2), Math.floor((height - drawH) / 2));
   }
 
   override update(time: number): void {
@@ -60,28 +114,48 @@ class MainScene extends Phaser.Scene {
   }
 }
 
-function integerZoom(): number {
-  const margin = 40;
-  const w = Math.max(320, window.innerWidth) - margin;
-  const h = Math.max(320, window.innerHeight) - 260;
-  return Math.max(1, Math.min(5, Math.floor(Math.min(w / SCREEN_W, h / SCREEN_H))));
+function stageSize(): { w: number; h: number } {
+  const stage = document.getElementById('game');
+  if (stage) {
+    const rect = stage.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return { w: Math.floor(rect.width), h: Math.floor(rect.height) };
+    }
+  }
+  return { w: Math.max(640, window.innerWidth - 48), h: Math.max(400, window.innerHeight - 160) };
 }
+
+const initial = stageSize();
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: SCREEN_W,
-  height: SCREEN_H,
-  zoom: integerZoom(),
+  width: initial.w,
+  height: initial.h,
   pixelArt: true,
-  backgroundColor: '#000000',
+  backgroundColor: '#050505',
   scale: {
-    mode: Phaser.Scale.NONE,
-    autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [MainScene],
 });
 
 window.addEventListener('resize', () => {
-  game.scale.setZoom(integerZoom());
+  const { w, h } = stageSize();
+  game.scale.resize(w, h);
+});
+
+// Collapsible help panel for tablets.
+const helpToggle = document.getElementById('help-toggle');
+const appRoot = document.getElementById('app');
+helpToggle?.addEventListener('click', () => {
+  const open = appRoot?.classList.toggle('help-open');
+  helpToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  helpToggle.textContent = open ? '✕' : '?';
+  // Phaser needs a resize after the stage reflows.
+  requestAnimationFrame(() => {
+    const { w, h } = stageSize();
+    game.scale.resize(w, h);
+  });
 });

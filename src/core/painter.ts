@@ -13,7 +13,7 @@ export interface Rect {
 /**
  * Immediate-mode pixel painter.
  *
- * The whole game is drawn into a single 176x208 canvas which Phaser then uploads
+ * The whole game is drawn into a single logical canvas which Phaser then uploads
  * as a texture and scales up with nearest-neighbour filtering. That mirrors how
  * the MIDlet drew into one off-screen `Image` and blitted it to the `FullCanvas`,
  * and it keeps every pixel under our control.

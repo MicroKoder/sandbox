@@ -3,6 +3,7 @@ import { Rng } from '../game/rng.ts';
 import type { GameState } from '../game/state.ts';
 import { createContext, type SimContext } from '../game/sim.ts';
 import type { Input, Key } from '../ui/input.ts';
+import { setUiPointer } from '../ui/widgets.ts';
 import { loadRecords, loadSettings, saveSettings, type Records, type Settings } from './profile.ts';
 import type { Cue, SoundBank } from './sound.ts';
 
@@ -14,8 +15,10 @@ export interface Screen {
   update?(app: App, dt: number): void;
   draw(app: App, p: Painter): void;
   key?(app: App, key: Key): void;
-  /** Pointer tap, in logical 176x208 coordinates. */
+  /** Pointer tap, in logical screen coordinates. */
   click?(app: App, x: number, y: number): void;
+  /** Wheel / touch-drag scroll in logical pixels (positive = reveal lower content). */
+  onScroll?(app: App, dy: number, x: number, y: number): void;
 }
 
 /** A mission in progress: persistent state plus the transient entity world. */
@@ -32,9 +35,12 @@ export class App {
   rng = new Rng();
   /** Wall-clock milliseconds since the app started, for animation. */
   clock = 0;
+  /** Latest pointer position in logical pixels, or null when outside the stage. */
+  pointer: { x: number; y: number } | null = null;
 
   private stack: Screen[] = [];
   private taps: Array<{ x: number; y: number }> = [];
+  private scrolls: Array<{ x: number; y: number; dy: number }> = [];
 
   constructor(input: Input, sound: SoundBank) {
     this.input = input;
@@ -94,6 +100,12 @@ export class App {
     this.taps.push({ x, y });
   }
 
+  /** Queues a scroll gesture in logical pixels. */
+  scroll(x: number, y: number, dy: number): void {
+    if (dy === 0) return;
+    this.scrolls.push({ x, y, dy });
+  }
+
   update(dt: number): void {
     this.clock += dt;
     const screen = this.top;
@@ -104,6 +116,14 @@ export class App {
       screen.key?.(this, key);
       // A key handler may swap the screen; stop feeding the old one.
       if (this.top !== screen) break;
+    }
+
+    const scrolls = this.scrolls;
+    this.scrolls = [];
+    for (const event of scrolls) {
+      const current = this.top;
+      if (!current) break;
+      current.onScroll?.(this, event.dy, event.x, event.y);
     }
 
     const taps = this.taps;
@@ -118,7 +138,17 @@ export class App {
     this.top?.update?.(this, dt);
   }
 
+  /** Updates the hover cursor used by clickable widgets. */
+  hover(x: number, y: number): void {
+    this.pointer = { x, y };
+  }
+
+  clearHover(): void {
+    this.pointer = null;
+  }
+
   draw(p: Painter): void {
+    setUiPointer(this.pointer);
     this.top?.draw(this, p);
   }
 }

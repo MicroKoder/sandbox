@@ -58,21 +58,34 @@ import {
   type Speed,
 } from '../game/state.ts';
 import { tick, warnings } from '../game/sim.ts';
+import {
+  advanceTutorial,
+  tutorialHighlightTab,
+  tutorialPreferredSub,
+} from '../game/tutorial.ts';
 import type { Key } from '../ui/input.ts';
 import {
+  adjustButtons,
   dialog,
+  drawHelpButton,
   fieldLine,
   formatMoney,
   formatRating,
+  HELP_BTN,
+  headerHelpHit,
   listWindow,
   notice,
+  paintHover,
   row,
   scrollbar,
   softkeys,
   subTabs,
+  uiHover,
+  type AdjustButtonHit,
 } from '../ui/widgets.ts';
 import { ConfirmScreen, EndingScreen, HelpScreen, MenuScreen, saveSession } from './menu.ts';
 import { drawExterior, drawInterior } from './pizzeria.ts';
+import { drawTutorialCoach } from './tutorial.ts';
 
 const TAB_COUNT = 11;
 /** The pizzeria view — the only screen on which the clock advances. */
@@ -131,7 +144,7 @@ interface ListRow {
 
 export class PlayScreen implements Screen {
   private tab = 0;
-  private sub = 0;
+  private sub = 1;
   /** Employee category shown by the staff tab. */
   private staffKind = 0;
   private cursor: number[] = new Array(TAB_COUNT).fill(0);
@@ -140,6 +153,12 @@ export class PlayScreen implements Screen {
   private message: string | null = null;
   private messageTimer = 0;
   private accumulator = 0;
+  /** Speed restored when leaving pause. */
+  private lastSpeed: Speed = 1;
+  /** Hit boxes for the ±quantity / ±price buttons drawn in the detail pane. */
+  private adjustHits: AdjustButtonHit[] = [];
+  /** Pixel remainder while dragging/wheeling the list. */
+  private scrollCarry = 0;
 
   enter(app: App): void {
     if (!app.session) app.reset(new MenuScreen());
@@ -151,6 +170,8 @@ export class PlayScreen implements Screen {
     const session = app.session;
     if (!session) return;
     const s = session.state;
+
+    advanceTutorial(s, { statsOpen: this.tab === 6 && this.sub === 1 });
 
     if (this.messageTimer > 0) {
       this.messageTimer -= dt;
@@ -208,8 +229,11 @@ export class PlayScreen implements Screen {
     // While the clock is stopped because the player is off in a menu, nudge them
     // back to the pizzeria tab with a slow blink.
     const nudge = s.speed > 0 && this.tab !== TAB_PIZZERIA && Math.floor(app.clock / 500) % 2 === 0;
-    this.drawTabStrip(p, s, nudge);
+    this.drawTabStrip(p, s, nudge, app.clock);
     this.drawSoftkeys(p, s);
+    // Tip bubble only on the pizzeria view — elsewhere it covers buy lists/buttons.
+    // Tab highlighting still runs on every screen via drawTabStrip.
+    if (this.tab === TAB_PIZZERIA) drawTutorialCoach(p, s, app.clock);
 
     if (this.message) dialog(p, this.message);
   }
@@ -221,59 +245,85 @@ export class PlayScreen implements Screen {
     const running = this.timeRunning(s);
     p.text(clockOf(s), 3, 3, running ? C.ink : C.inkDim);
 
-    // Speed: three pips while the clock runs, a pause bar while it is stopped.
-    if (!running) {
-      p.fill(29, 4, 2, 5, C.tomato);
-      p.fill(33, 4, 2, 5, C.tomato);
+    // Pause button (separate from speed).
+    const pause = { x: 28, y: 1, w: 11, h: 10 };
+    const pauseHover = uiHover(pause.x, pause.y, pause.w, pause.h);
+    p.panel(pause.x, pause.y, pause.w, pause.h, { fill: pauseHover ? C.selBg : C.panelHi, raised: true });
+    p.stroke(pause.x, pause.y, pause.w, pause.h, pauseHover ? C.gold : s.speed === 0 ? C.tomato : C.line);
+    if (s.speed === 0) {
+      // Play triangle.
+      p.fill(pause.x + 4, pause.y + 2, 1, 6, C.gold);
+      p.fill(pause.x + 5, pause.y + 3, 1, 4, C.gold);
+      p.fill(pause.x + 6, pause.y + 4, 1, 2, C.gold);
     } else {
-      for (let i = 0; i < 3; i++) {
-        p.fill(29 + i * 4, 4, 3, 5, s.speed > i ? C.gold : C.panelLo);
-      }
+      // Pause bars.
+      p.fill(pause.x + 3, pause.y + 2, 2, 6, C.gold);
+      p.fill(pause.x + 6, pause.y + 2, 2, 6, C.gold);
     }
-    p.vLine(42, 2, 8, C.lineSoft);
 
-    p.text(`Д${s.day + 1}/${missionOf(s).days}`, 46, 3, C.inkDim);
-    p.vLine(70, 2, 8, C.lineSoft);
-    p.text(formatRating(s.rating), 74, 3, C.sky);
+    // Speed cycle button — shows current (or last) rate.
+    const speed = { x: 41, y: 1, w: 18, h: 10 };
+    const shown = (s.speed === 0 ? this.lastSpeed : s.speed) || 1;
+    const speedHover = uiHover(speed.x, speed.y, speed.w, speed.h);
+    p.panel(speed.x, speed.y, speed.w, speed.h, { fill: speedHover ? C.selBg : C.panelHi, raised: true });
+    p.stroke(speed.x, speed.y, speed.w, speed.h, speedHover ? C.gold : C.line);
+    p.text(`x${shown}`, speed.x + speed.w / 2, speed.y + 2, speedHover ? C.selInk : C.gold, 'center');
+
+    p.vLine(62, 2, 8, C.lineSoft);
+    p.text(`Д${s.day + 1}/${missionOf(s).days}`, 65, 3, C.inkDim);
+    p.vLine(89, 2, 8, C.lineSoft);
+    p.text(formatRating(s.rating), 93, 3, C.sky);
 
     // Amber once the till no longer covers tonight's wages and advertising bill.
     const due = dailySalary(s) + dailyAdCost(s);
     const shortOfBills = due > 0 && s.money < due;
+    const moneyX = HELP_BTN.x - 4;
     p.text(
       `${formatMoney(s.money)}$`,
-      SCREEN_W - 3,
+      moneyX,
       3,
       s.money < 0 ? C.tomato : shortOfBills ? C.warn : C.money,
       'right',
     );
-    if (shortOfBills) p.text('!', SCREEN_W - 3 - p.measure(`${formatMoney(s.money)}$`) - 5, 3, C.tomato);
+    if (shortOfBills) p.text('!', moneyX - p.measure(`${formatMoney(s.money)}$`) - 5, 3, C.tomato);
+
+    drawHelpButton(p, HELP_BTN.x, HELP_BTN.y);
   }
 
-  private drawTabStrip(p: Painter, s: GameState, nudge: boolean): void {
+  private drawTabStrip(p: Painter, s: GameState, nudge: boolean, clock: number): void {
     const x = SCREEN_W - TAB_STRIP_W;
     p.fill(x, TOP_BAR_H, TAB_STRIP_W, SCREEN_H - TOP_BAR_H - BOTTOM_BAR_H, C.bar);
     p.vLine(x, TOP_BAR_H, SCREEN_H - TOP_BAR_H - BOTTOM_BAR_H, C.line);
 
     const icons = getTabIcons();
     const warn = warnings(s);
+    const coachTab = tutorialHighlightTab(s);
+    const pulse = Math.floor(clock / 400) % 2 === 0;
 
     for (let i = 0; i < TAB_COUNT; i++) {
       const y = TAB_TOP + i * TAB_H;
       const active = i === this.tab;
+      const hovered = !active && uiHover(x, y, TAB_STRIP_W, TAB_H);
+      const coached = coachTab === i;
       if (active) {
         p.gradientV(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, C.selBgAlt, C.selBg);
         p.hLine(x + 1, y, TAB_STRIP_W - 1, C.gold);
       } else if (warn[i]) {
         p.fill(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, '#5a2118');
+      } else if (coached) {
+        p.gradientV(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, C.selBgAlt, C.panel);
       }
+      if (hovered) paintHover(p, x, y, TAB_STRIP_W, TAB_H);
       if (this.tabFocus && active) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
       if (nudge && i === TAB_PIZZERIA) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
+      if (coached && pulse) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
 
       const icon = icons[i];
       if (icon) {
         p.blit(icon, x + 2 + (TAB_STRIP_W - 2 - TAB_ICON_W) / 2, y + (TAB_H - 1 - TAB_ICON_H) / 2);
       }
       if (warn[i] && !active) p.fill(x + TAB_STRIP_W - 4, y + 2, 2, 2, C.tomato);
+      if (coached && !active) p.fill(x + TAB_STRIP_W - 4, y + TAB_H - 4, 2, 2, C.gold);
     }
   }
 
@@ -318,7 +368,7 @@ export class PlayScreen implements Screen {
     if (!session) return;
     const oy = CONTENT.y + 11;
     p.pushClip({ x: CONTENT.x, y: oy, w: CONTENT.w, h: CONTENT.h - 11 });
-    if (this.sub === 0) drawExterior(p, s, session.world, oy);
+    if (this.sub === 0) drawExterior(p, s, session.world, oy, app.clock);
     else drawInterior(p, s, session.world, oy);
     p.popClip();
 
@@ -477,6 +527,7 @@ export class PlayScreen implements Screen {
   }
 
   private drawList(p: Painter, s: GameState): void {
+    this.adjustHits = [];
     const rows = this.rows(s);
     if (rows.length === 0) {
       notice(p, this.emptyText(), LIST_AREA);
@@ -484,7 +535,8 @@ export class PlayScreen implements Screen {
     }
 
     const rowH = 18;
-    const detailH = 24;
+    // Quantity / price screens need a taller detail pane for the clickable ± buttons.
+    const detailH = this.adjustSteps(s) ? 28 : 24;
     const areaH = LIST_AREA.h - detailH;
     let cursor = this.cursor[this.tab];
     cursor = Math.max(0, Math.min(cursor, rows.length - 1));
@@ -525,7 +577,7 @@ export class PlayScreen implements Screen {
 
     scrollbar(
       p,
-      { x: LIST_AREA.x + LIST_AREA.w - 3, y: LIST_AREA.y, w: 2, h: areaH },
+      { x: LIST_AREA.x + LIST_AREA.w - 4, y: LIST_AREA.y, w: 3, h: areaH },
       win.first,
       win.visible,
       rows.length,
@@ -541,9 +593,17 @@ export class PlayScreen implements Screen {
     const w = LIST_AREA.w - 8;
     switch (this.tab) {
       case 1: {
-        const hint = this.sub === 0 ? S.changePrice : S.changePrice;
-        p.text(hint.split('\n')[0], 4, y + 3, C.inkDim);
-        p.text(hint.split('\n')[1], 4, y + 12, C.orange);
+        const step = this.adjustSteps(s);
+        if (step) {
+          this.adjustHits = adjustButtons(
+            p,
+            { x: LIST_AREA.x, y, w: LIST_AREA.w, h },
+            'ИЗМЕНЕНИЕ ЦЕНЫ',
+            step.small,
+            step.big,
+            { suffix: '$' },
+          );
+        }
         break;
       }
       case 2:
@@ -558,9 +618,16 @@ export class PlayScreen implements Screen {
       case 3:
       case 4:
         if (this.sub === 0) {
-          const text = this.tab === 3 ? S.changeAmount1000 : S.changeAmount100;
-          p.text(text.split('\n')[0], 4, y + 3, C.inkDim);
-          p.text(text.split('\n')[1], 4, y + 12, C.orange);
+          const step = this.adjustSteps(s);
+          if (step) {
+            this.adjustHits = adjustButtons(
+              p,
+              { x: LIST_AREA.x, y, w: LIST_AREA.w, h },
+              'ИЗМЕНЕНИЕ КОЛИЧЕСТВА',
+              step.small,
+              step.big,
+            );
+          }
         } else {
           fieldLine(p, S.price, item.right ?? '', 4, y + 3, w);
           p.text('ВЫБОР — НАЛАДИТЬ ПОСТАВКУ', 4, y + 12, C.orange);
@@ -762,11 +829,22 @@ export class PlayScreen implements Screen {
 
     switch (key) {
       case 'speedDown':
-        s.speed = Math.max(0, s.speed - 1) as Speed;
+        if (s.speed > 1) {
+          s.speed = (s.speed - 1) as Speed;
+          this.lastSpeed = s.speed;
+        } else if (s.speed === 1) {
+          this.lastSpeed = 1;
+          s.speed = 0;
+        }
         app.cue('select');
         return;
       case 'speedUp':
-        s.speed = Math.min(3, s.speed + 1) as Speed;
+        if (s.speed === 0) {
+          s.speed = Math.min(3, Math.max(1, this.lastSpeed)) as Speed;
+        } else {
+          s.speed = Math.min(3, s.speed + 1) as Speed;
+        }
+        this.lastSpeed = s.speed;
         app.cue('select');
         return;
       case 'hint':
@@ -785,10 +863,10 @@ export class PlayScreen implements Screen {
         this.cycleSub(app, s);
         return;
       case 'prevTab':
-        this.switchTab(app, -1);
+        this.switchTab(app, s, -1);
         return;
       case 'nextTab':
-        this.switchTab(app, 1);
+        this.switchTab(app, s, 1);
         return;
       default:
         break;
@@ -804,16 +882,29 @@ export class PlayScreen implements Screen {
     }
 
     if (this.tabFocus) {
-      this.tabStripKey(app, key);
+      this.tabStripKey(app, s, key);
       return;
     }
 
     this.contentKey(app, s, key);
   }
 
-  private switchTab(app: App, delta: number): void {
-    this.tab = (this.tab + delta + TAB_COUNT) % TAB_COUNT;
-    this.sub = 0;
+  private switchTab(app: App, s: GameState, delta: number): void {
+    this.openTab(app, s, (this.tab + delta + TAB_COUNT) % TAB_COUNT);
+  }
+
+  /** Opens a tab and, during the coach tip, jumps to the preferred sub-screen. */
+  private openTab(app: App, s: GameState, index: number): void {
+    this.tab = index;
+    if (tutorialHighlightTab(s) === index) {
+      this.sub = tutorialPreferredSub(s);
+      if (index === 10) {
+        if (hiredOf(s, 0).length === 0) this.staffKind = 0;
+        else if (hiredOf(s, 1).length === 0) this.staffKind = 1;
+      }
+    } else {
+      this.sub = index === TAB_PIZZERIA ? 1 : 0;
+    }
     this.tabFocus = false;
     app.cue('select');
   }
@@ -834,15 +925,11 @@ export class PlayScreen implements Screen {
     app.cue('select');
   }
 
-  private tabStripKey(app: App, key: Key): void {
+  private tabStripKey(app: App, s: GameState, key: Key): void {
     if (key === 'up') {
-      this.tab = (this.tab + TAB_COUNT - 1) % TAB_COUNT;
-      this.sub = 0;
-      app.cue('select');
+      this.openTab(app, s, (this.tab + TAB_COUNT - 1) % TAB_COUNT);
     } else if (key === 'down') {
-      this.tab = (this.tab + 1) % TAB_COUNT;
-      this.sub = 0;
-      app.cue('select');
+      this.openTab(app, s, (this.tab + 1) % TAB_COUNT);
     } else if (key === 'select' || key === 'left') {
       this.tabFocus = false;
       app.cue('select');
@@ -932,7 +1019,9 @@ export class PlayScreen implements Screen {
     switch (this.tab) {
       case 2:
         if (this.sub === 1) {
-          this.confirm(app, CONFIRM.buyRecipe, () => {
+          const pizza = PIZZAS[id];
+          const recipe = pizza.ingredients.map((ing) => INGREDIENTS[ing].name).join(', ');
+          this.confirm(app, `${CONFIRM.buyRecipe}\n \n${pizza.name}\n${recipe}`, () => {
             const r = buyRecipe(s, id);
             if (!r.ok) fail(r.message ?? '');
             else done();
@@ -966,7 +1055,8 @@ export class PlayScreen implements Screen {
         return;
       case 8:
         if (this.sub === 1) {
-          this.confirm(app, CONFIRM.doUpgrade, () => {
+          const upgrade = UPGRADES[id];
+          this.confirm(app, `${CONFIRM.doUpgrade}\n \n${upgrade.name}\n${upgrade.desc}`, () => {
             const r = installUpgrade(s, id);
             if (!r.ok) fail(r.message ?? '');
             else app.cue('upgrade');
@@ -1014,19 +1104,42 @@ export class PlayScreen implements Screen {
     // Tab strip.
     if (x >= SCREEN_W - TAB_STRIP_W && y >= TAB_TOP && y < TAB_TOP + TAB_COUNT * TAB_H) {
       const index = Math.floor((y - TAB_TOP) / TAB_H);
-      if (index !== this.tab) {
-        this.tab = index;
-        this.sub = 0;
-        app.cue('select');
+      if (index !== this.tab) this.openTab(app, s, index);
+      else if (tutorialHighlightTab(s) === index) {
+        this.sub = tutorialPreferredSub(s);
+        if (index === 10) {
+          if (hiredOf(s, 0).length === 0) this.staffKind = 0;
+          else if (hiredOf(s, 1).length === 0) this.staffKind = 1;
+        }
       }
       this.tabFocus = false;
       return;
     }
 
-    // Status bar: tap the clock area to pause or resume.
-    if (y < TOP_BAR_H && x < 44) {
-      s.speed = s.speed === 0 ? 1 : 0;
-      app.cue('select');
+    // Top bar controls: help, pause, speed.
+    if (y < TOP_BAR_H) {
+      if (headerHelpHit(x, y)) {
+        app.push(new HelpScreen(HELP_BOOK, helpPageForTab(this.tab)));
+        app.cue('select');
+        return;
+      }
+      if (x >= 28 && x < 39) {
+        if (s.speed === 0) s.speed = (this.lastSpeed || 1) as Speed;
+        else {
+          this.lastSpeed = s.speed;
+          s.speed = 0;
+        }
+        app.cue('select');
+        return;
+      }
+      if (x >= 41 && x < 59) {
+        const base = s.speed === 0 ? this.lastSpeed || 1 : s.speed;
+        const next = (base >= 3 ? 1 : base + 1) as Speed;
+        this.lastSpeed = next;
+        s.speed = next;
+        app.cue('select');
+        return;
+      }
       return;
     }
 
@@ -1055,12 +1168,35 @@ export class PlayScreen implements Screen {
       return;
     }
 
+    // Quantity / price ± buttons in the detail pane.
+    for (const hit of this.adjustHits) {
+      if (x >= hit.x && x < hit.x + hit.w && y >= hit.y && y < hit.y + hit.h) {
+        const step = this.adjustSteps(s);
+        const rows = this.rows(s);
+        if (!step || rows.length === 0) return;
+        const id = rows[Math.min(this.cursor[this.tab], rows.length - 1)].id;
+        step.apply(id, hit.delta);
+        app.cue(hit.delta > 0 ? 'cash' : 'select');
+        return;
+      }
+    }
+
     // List rows: first tap selects, a tap on the selected row activates it.
     const rows = this.rows(s);
     if (rows.length === 0 || x >= CONTENT.w) return;
     const rowH = 18;
-    const areaH = LIST_AREA.h - 24;
+    const detailH = this.adjustSteps(s) ? 28 : 24;
+    const areaH = LIST_AREA.h - detailH;
     if (y < LIST_AREA.y || y >= LIST_AREA.y + areaH) return;
+    // Scrollbar track: jump the window.
+    if (x >= LIST_AREA.x + LIST_AREA.w - 6) {
+      const ratio = Math.max(0, Math.min(1, (y - LIST_AREA.y) / areaH));
+      const visible = Math.max(1, Math.floor(areaH / rowH));
+      this.first[this.tab] = Math.max(0, Math.min(rows.length - visible, Math.round(ratio * Math.max(0, rows.length - visible))));
+      this.cursor[this.tab] = Math.max(this.first[this.tab], Math.min(this.first[this.tab] + visible - 1, this.cursor[this.tab]));
+      app.cue('select');
+      return;
+    }
     const index = this.first[this.tab] + Math.floor((y - LIST_AREA.y) / rowH);
     if (index < 0 || index >= rows.length) return;
     if (index === this.cursor[this.tab]) this.activate(app, s, rows[index].id);
@@ -1068,6 +1204,37 @@ export class PlayScreen implements Screen {
       this.cursor[this.tab] = index;
       app.cue('select');
     }
+  }
+
+  /**
+   * Touch-drag / mouse-wheel scrolling for long lists (ingredients, products…).
+   * Positive `dy` reveals lower rows.
+   */
+  onScroll(app: App, dy: number, x: number, y: number): void {
+    const session = app.session;
+    if (!session || this.message) return;
+    if (this.tab === 0 || this.tab === 6 || this.tab === 7) return;
+    if (x >= CONTENT.w) return;
+
+    const rows = this.rows(session.state);
+    if (rows.length === 0) return;
+    const rowH = 18;
+    const detailH = this.adjustSteps(session.state) ? 28 : 24;
+    const areaH = LIST_AREA.h - detailH;
+    if (y < LIST_AREA.y - 4 || y >= LIST_AREA.y + areaH + 4) return;
+
+    this.scrollCarry += dy;
+    const steps = Math.trunc(this.scrollCarry / rowH);
+    if (steps === 0) return;
+    this.scrollCarry -= steps * rowH;
+
+    const visible = Math.max(1, Math.floor(areaH / rowH));
+    const maxFirst = Math.max(0, rows.length - visible);
+    this.first[this.tab] = Math.max(0, Math.min(maxFirst, this.first[this.tab] + steps));
+    // Keep the selection inside the visible window so ↑/↓ stay coherent.
+    const first = this.first[this.tab];
+    if (this.cursor[this.tab] < first) this.cursor[this.tab] = first;
+    if (this.cursor[this.tab] >= first + visible) this.cursor[this.tab] = first + visible - 1;
   }
 }
 
@@ -1094,12 +1261,15 @@ class PauseScreen implements Screen {
     this.items.forEach((label, i) => {
       const iy = y + 16 + i * 16;
       const on = i === this.index;
+      const hovered = !on && uiHover(22, iy - 2, SCREEN_W - 44, 13);
       if (on) {
         p.gradientV(22, iy - 2, SCREEN_W - 44, 13, C.selBgAlt, C.selBg);
         p.stroke(22, iy - 2, SCREEN_W - 44, 13, C.gold);
+      } else if (hovered) {
+        paintHover(p, 22, iy - 2, SCREEN_W - 44, 13);
       }
       const text = i === 2 ? `${S.hints}: ${app.settings.hints ? S.on : S.off}` : label;
-      p.text(text, SCREEN_W / 2, iy + 1, on ? C.selInk : C.ink, 'center');
+      p.text(text, SCREEN_W / 2, iy + 1, on || hovered ? C.selInk : C.ink, 'center');
     });
   }
 

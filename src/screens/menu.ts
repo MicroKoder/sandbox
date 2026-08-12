@@ -13,12 +13,15 @@ import {
   formatMoney,
   formatRating,
   header,
+  headerHelpHit,
   listWindow,
   row,
   scrollbar,
+  softkeyHit,
   softkeys,
+  uiHover,
 } from '../ui/widgets.ts';
-import { drawLogoMark, menuBackground, scrollText } from './common.ts';
+import { drawLogoMark, menuBackground, scrollEmotionsHelp, scrollText } from './common.ts';
 import { PlayScreen } from './play.ts';
 
 // ------------------------------------------------------------------- splash
@@ -39,7 +42,7 @@ export class SplashScreen implements Screen {
     p.text('ВЕБ-РЕМЕЙК', SCREEN_W / 2, 132, C.inkFaint, 'center');
 
     if (Math.floor(this.t / 500) % 2 === 0) {
-      p.text(S.pressAnyKey, SCREEN_W / 2, 178, C.ink, 'center');
+      p.text(S.pressAnyKey, SCREEN_W / 2, SCREEN_H - 22, C.ink, 'center');
     }
   }
 
@@ -92,9 +95,10 @@ export class MenuScreen implements Screen {
       const y = top + i * 19;
       const on = i === this.index;
       const disabled = item.enabled ? !item.enabled(app) : false;
-      p.panel(16, y, SCREEN_W - 32, 15, { fill: on ? C.selBg : C.panel, raised: !on });
-      if (on) p.stroke(16, y, SCREEN_W - 32, 15, C.gold);
-      p.text(item.label, SCREEN_W / 2, y + 4, disabled ? C.inkFaint : on ? C.selInk : C.ink, 'center');
+      const hovered = !on && !disabled && uiHover(16, y, SCREEN_W - 32, 15);
+      p.panel(16, y, SCREEN_W - 32, 15, { fill: on || hovered ? C.selBg : C.panel, raised: !on });
+      if (on || hovered) p.stroke(16, y, SCREEN_W - 32, 15, C.gold);
+      p.text(item.label, SCREEN_W / 2, y + 4, disabled ? C.inkFaint : on || hovered ? C.selInk : C.ink, 'center');
     });
 
     softkeys(p, undefined, S.exit, `${app.settings.playerName}`);
@@ -145,9 +149,10 @@ export class SettingsScreen implements Screen {
     rows.forEach(([label, value], i) => {
       const y = 30 + i * 20;
       const on = i === this.index;
-      p.panel(10, y, SCREEN_W - 20, 16, { fill: on ? C.selBg : C.panel, raised: !on });
-      if (on) p.stroke(10, y, SCREEN_W - 20, 16, C.gold);
-      p.text(label, 16, y + 5, on ? C.selInk : C.inkDim);
+      const hovered = !on && uiHover(10, y, SCREEN_W - 20, 16);
+      p.panel(10, y, SCREEN_W - 20, 16, { fill: on || hovered ? C.selBg : C.panel, raised: !on });
+      if (on || hovered) p.stroke(10, y, SCREEN_W - 20, 16, C.gold);
+      p.text(label, 16, y + 5, on || hovered ? C.selInk : C.inkDim);
       p.text(value, SCREEN_W - 16, y + 5, C.gold, 'right');
     });
 
@@ -155,12 +160,18 @@ export class SettingsScreen implements Screen {
     softkeys(p, S.back);
   }
 
-  click(app: App, _x: number, y: number): void {
-    const index = Math.floor((y - 30) / 20);
-    if (index < 0 || index > 3) {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
       this.key(app, 'back');
       return;
     }
+    const index = Math.floor((y - 30) / 20);
+    if (index < 0 || index > 3) return;
     this.index = index;
     this.key(app, 'select');
   }
@@ -230,6 +241,11 @@ export class AboutScreen implements Screen {
     else if (key === 'up') this.scroll = Math.max(0, this.scroll - 9);
     else if (key === 'back' || key === 'select') app.pop();
   }
+
+  onScroll(_app: App, dy: number): void {
+    const max = Math.max(0, this.height - (FULL.h - 10));
+    this.scroll = Math.max(0, Math.min(max, this.scroll + dy));
+  }
 }
 
 // --------------------------------------------------------------------- help
@@ -257,7 +273,7 @@ export class HelpScreen implements Screen {
 
   draw(_app: App, p: Painter): void {
     p.clear(C.bg);
-    header(p, S.help);
+    header(p, S.help, { help: false });
 
     const chapter = this.current;
     const titleY = FULL.y;
@@ -269,7 +285,11 @@ export class HelpScreen implements Screen {
 
     const bodyY = titleY + 14;
     const bodyH = FULL.h - 14;
-    this.height = scrollText(p, chapter.text, 6, bodyY, SCREEN_W - 16, bodyH, this.scroll);
+    if (chapter.kind === 'emotions') {
+      this.height = scrollEmotionsHelp(p, 6, bodyY, SCREEN_W - 16, bodyH, this.scroll);
+    } else {
+      this.height = scrollText(p, chapter.text, 6, bodyY, SCREEN_W - 16, bodyH, this.scroll);
+    }
     scrollbar(
       p,
       { x: SCREEN_W - 4, y: bodyY, w: 2, h: bodyH },
@@ -308,6 +328,12 @@ export class HelpScreen implements Screen {
     else if (key === 'left' || key === 'prevTab') this.turn(-1);
     else if (key === 'right' || key === 'nextTab') this.turn(1);
     else if (key === 'back' || key === 'select' || key === 'hint') app.pop();
+  }
+
+  onScroll(_app: App, dy: number): void {
+    const bodyH = FULL.h - 14;
+    const max = Math.max(0, this.height - bodyH + 6);
+    this.scroll = Math.max(0, Math.min(max, this.scroll + dy));
   }
 }
 
@@ -349,10 +375,18 @@ export class RecordsScreen implements Screen {
     }
   }
 
-  click(app: App, _x: number, y: number): void {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      app.pop();
+      return;
+    }
     const index = this.first + Math.floor((y - (FULL.y + 2)) / 14);
     if (index >= 0 && index < MISSION_COUNT) this.index = index;
-    else app.pop();
   }
 
   key(app: App, key: Key): void {
@@ -375,15 +409,29 @@ export class GameTypeScreen implements Screen {
     [S.newCampaign, S.singleMission].forEach((label, i) => {
       const y = 76 + i * 22;
       const on = i === this.index;
-      p.panel(16, y, SCREEN_W - 32, 17, { fill: on ? C.selBg : C.panel, raised: !on });
-      if (on) p.stroke(16, y, SCREEN_W - 32, 17, C.gold);
-      p.text(label, SCREEN_W / 2, y + 5, on ? C.selInk : C.ink, 'center');
+      const hovered = !on && uiHover(16, y, SCREEN_W - 32, 17);
+      p.panel(16, y, SCREEN_W - 32, 17, { fill: on || hovered ? C.selBg : C.panel, raised: !on });
+      if (on || hovered) p.stroke(16, y, SCREEN_W - 32, 17, C.gold);
+      p.text(label, SCREEN_W / 2, y + 5, on || hovered ? C.selInk : C.ink, 'center');
     });
 
     softkeys(p, S.back, S.next);
   }
 
-  click(app: App, _x: number, y: number): void {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      this.key(app, 'back');
+      return;
+    }
+    if (sk === 'right') {
+      this.key(app, 'select');
+      return;
+    }
     const index = Math.floor((y - 76) / 22);
     if (index < 0 || index > 1) return;
     this.index = index;
@@ -459,8 +507,20 @@ export class NameScreen implements Screen {
     this.value = this.value.slice(0, -1);
   }
 
-  click(app: App): void {
-    this.key(app, 'select');
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      this.key(app, 'back');
+      return;
+    }
+    if (sk === 'right') {
+      this.key(app, 'select');
+      return;
+    }
   }
 
   key(app: App, key: Key): void {
@@ -508,7 +568,20 @@ export class MissionSelectScreen implements Screen {
     softkeys(p, S.back, S.next);
   }
 
-  click(app: App, _x: number, y: number): void {
+  click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
+    const sk = softkeyHit(x, y);
+    if (sk === 'left') {
+      this.key(app, 'back');
+      return;
+    }
+    if (sk === 'right') {
+      this.key(app, 'select');
+      return;
+    }
     const index = this.first + Math.floor((y - (FULL.y + 2)) / 14);
     if (index < 0 || index >= MISSION_COUNT) return;
     if (index === this.index) this.key(app, 'select');
@@ -569,6 +642,10 @@ export class BriefingScreen implements Screen {
   }
 
   click(app: App, x: number, y: number): void {
+    if (headerHelpHit(x, y)) {
+      app.push(new HelpScreen(HELP_BOOK));
+      return;
+    }
     if (y >= SCREEN_H - 13) {
       this.key(app, x > SCREEN_W / 2 ? 'select' : 'back');
       return;
@@ -596,6 +673,12 @@ export class BriefingScreen implements Screen {
       app.cue('start');
       app.replace(new PlayScreen());
     }
+  }
+
+  onScroll(_app: App, dy: number): void {
+    const bodyH = FULL.h - 15 - 46;
+    const max = Math.max(0, this.height - bodyH + 6);
+    this.scroll = Math.max(0, Math.min(max, this.scroll + dy));
   }
 }
 

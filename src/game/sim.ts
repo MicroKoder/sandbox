@@ -6,8 +6,12 @@ import {
   machinePos,
   seatPos,
   step,
+  syncWorldSeats,
+  tableCount,
   DOOR,
   KITCHEN_Y,
+  COOK_Y,
+  COUNTER_X,
   OVEN_XS,
   ROOM_W,
   TABLES,
@@ -36,6 +40,7 @@ import {
   staffStat,
   type GameState,
 } from './state.ts';
+import { UPGRADE_SECOND_FLOOR } from '../data/content.ts';
 
 /**
  * The simulation, ported from the original's per-tick loop.
@@ -67,7 +72,7 @@ export const DEVIATIONS = {
   adsAffectFootfall: true,
 } as const;
 
-const CUSTOMER_SPEED = 0.75;
+const CUSTOMER_SPEED = 1.25;
 /**
  * How long a seated guest will wait, in ticks. The original used 300 (half a
  * game hour) which no single waiter could ever meet, so almost every visitor
@@ -156,6 +161,7 @@ export function tick(ctx: SimContext): void {
   if (s.ending) return;
 
   s.tick++;
+  syncWorldSeats(w, s.upgrades[UPGRADE_SECOND_FLOOR]);
 
   if (s.tick === TICK_OPEN) {
     s.open = true;
@@ -164,6 +170,7 @@ export function tick(ctx: SimContext): void {
   }
 
   updateStreet(ctx);
+  updateCars(ctx);
   updateStaff(ctx);
   updateCustomers(ctx);
   updateMachines(w);
@@ -183,8 +190,9 @@ export function tick(ctx: SimContext): void {
       s.money -= wages;
       log(s, `ВЫПЛАЧЕНЫ ЗАРПЛАТЫ: ${wages}$`);
     }
+    // Sign flips to closed, but staff keep working: everyone stays until the
+    // last guest leaves, and the cleaner additionally until the floor is clear.
     s.open = false;
-    for (const st of w.staff) st.state = 'leave';
     if (s.money < 0) {
       finish(s, 'bankrupt');
       return;
@@ -207,9 +215,14 @@ function updateStreet(ctx: SimContext): void {
       id: w.nextId++,
       seed: rng.int(1, 9999),
       x: dir === 1 ? -10 : ROOM_W + 10,
-      y: 124 + rng.int(0, 10),
+      // Pavement band is y 96–118; keep feet on the sidewalk, not the road.
+      y: 108 + rng.int(0, 6),
       dir,
       decided: false,
+      entering: false,
+      leaving: false,
+      mood: -1,
+      moodTimer: 0,
       anim: 0,
     });
     w.spawnCooldown = 5;
@@ -217,13 +230,53 @@ function updateStreet(ctx: SimContext): void {
 
   for (let i = w.walkers.length - 1; i >= 0; i--) {
     const p = w.walkers[i];
+    if (p.moodTimer > 0) p.moodTimer--;
+
+    // Guests leaving the building: step down onto the pavement, then walk off.
+    if (p.leaving) {
+      const speed = 0.45;
+      p.anim += speed;
+      const pavementY = 110;
+      if (p.y < pavementY - 0.5) {
+        p.y = Math.min(pavementY, p.y + speed);
+        if (Math.abs(p.x - DOOR_STREET.x) > 0.3) {
+          p.dir = p.x < DOOR_STREET.x ? 1 : -1;
+          p.x += p.dir * speed * 0.3;
+        }
+      } else {
+        p.x += p.dir * speed;
+      }
+      if (p.x < -14 || p.x > ROOM_W + 14) w.walkers.splice(i, 1);
+      continue;
+    }
+
+    // After choosing to come in, walk up the pavement to the door, then enter.
+    if (p.entering) {
+      const dx = DOOR_STREET.x - p.x;
+      const dy = DOOR_STREET.y - p.y;
+      const dist = Math.hypot(dx, dy);
+      const speed = 0.45;
+      p.anim += speed;
+      if (Math.abs(dx) > 0.3) p.dir = dx > 0 ? 1 : -1;
+      if (dist <= speed) {
+        p.x = DOOR_STREET.x;
+        p.y = DOOR_STREET.y;
+        admitCustomer(ctx, p.seed);
+        w.walkers.splice(i, 1);
+      } else {
+        p.x += (dx / dist) * speed;
+        p.y += (dy / dist) * speed;
+      }
+      continue;
+    }
+
     p.x += p.dir * 0.4;
     p.anim += 0.4;
 
-    if (!p.decided && Math.abs(p.x - DOOR.x) < 2) {
+    if (!p.decided && Math.abs(p.x - DOOR_STREET.x) < 2) {
       p.decided = true;
-      if (tryEnter(ctx, p.seed)) {
-        w.walkers.splice(i, 1);
+      if (canEnter(ctx)) {
+        p.entering = true;
         continue;
       }
     }
@@ -231,13 +284,67 @@ function updateStreet(ctx: SimContext): void {
   }
 }
 
-/** A pedestrian at the door decides whether to become a customer (C.java:6486). */
-function tryEnter(ctx: SimContext, seed: number): boolean {
+/** Road traffic and pizza delivery vans on the exterior street. */
+function updateCars(ctx: SimContext): void {
+  const { state: s, world: w, rng } = ctx;
+
+  for (let i = w.cars.length - 1; i >= 0; i--) {
+    const car = w.cars[i];
+    car.x += car.dir * car.speed;
+    if (car.x < -44 || car.x > ROOM_W + 44) w.cars.splice(i, 1);
+  }
+
+  if (w.carCooldown > 0) w.carCooldown--;
+  const hour = s.tick / 600; // TICKS_PER_HOUR — keep local to avoid a circular import pull
+  const night = hour < 6 || hour >= 21;
+  const trafficCount = w.cars.filter((c) => c.kind === 'traffic').length;
+  const maxTraffic = night ? 1 : 3;
+  if (trafficCount < maxTraffic && w.carCooldown <= 0 && rng.chance(night ? 2 : 4)) {
+    spawnCar(ctx, 'traffic');
+    w.carCooldown = night ? rng.int(80, 160) : rng.int(35, 90);
+  }
+}
+
+/**
+ * Road layout (room y): pavement 96–118, road 118–170, centre line at 144.
+ * Top lane (above the line) drives left; bottom lane drives right.
+ */
+const ROAD_LANE_TOP_Y = 136;
+const ROAD_LANE_BOTTOM_Y = 158;
+
+function spawnCar(ctx: SimContext, kind: 'traffic' | 'delivery'): void {
+  const { world: w, rng } = ctx;
+  if (kind === 'delivery' && w.cars.some((c) => c.kind === 'delivery')) return;
+  // Top of road → left (−1), bottom → right (+1).
+  const dir: 1 | -1 = rng.chance(50) ? 1 : -1;
+  const lane = dir === 1 ? ROAD_LANE_BOTTOM_Y : ROAD_LANE_TOP_Y;
+  w.cars.push({
+    id: w.nextId++,
+    kind,
+    seed: rng.int(1, 9999),
+    x: dir === 1 ? -34 : ROOM_W + 34,
+    y: lane,
+    dir,
+    speed: kind === 'delivery' ? 0.85 + rng.int(0, 20) / 100 : 0.55 + rng.int(0, 35) / 100,
+  });
+}
+
+/** Exterior door threshold — centre of the street-view doorway on the pavement. */
+const DOOR_STREET = { x: Math.floor(ROOM_W / 2), y: 97 };
+
+/** Whether a sidewalk passer-by is allowed to start walking up to the door. */
+function canEnter(ctx: SimContext): boolean {
   const { state: s, world: w, rng } = ctx;
   if (s.tick < TICK_FIRST_CUSTOMER || s.tick > TICK_LAST_CUSTOMER) return false;
   if (!s.open) return false;
   if (w.customers.length + w.staff.length >= entityCap(s)) return false;
-  if (!rng.chance(entryChance(s))) return false;
+  return rng.chance(entryChance(s));
+}
+
+/** Materialise a customer once the walker has reached the exterior door (C.java:6486). */
+function admitCustomer(ctx: SimContext, seed: number): void {
+  const { state: s, world: w, rng } = ctx;
+  if (w.customers.length + w.staff.length >= entityCap(s)) return;
 
   const customer: Customer = {
     kind: 'customer',
@@ -264,21 +371,21 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
   const scare = litter > 0 ? litter * litter : 0;
   if (scare > 0 && rng.chance(scare)) {
     customer.mood = MOOD.scared;
-    leave(customer, w);
+    leave(ctx, customer);
     w.customers.push(customer);
-    return true;
+    return;
   }
 
   if (rng.chance(80)) {
     // Wants a table.
     if (!hasTables(s)) {
       customer.mood = MOOD.unserved;
-      leave(customer, w);
+      leave(ctx, customer);
     } else {
       const seat = freeSeat(w, (a, b) => rng.int(a, b));
       if (!seat) {
         customer.mood = MOOD.unserved;
-        leave(customer, w);
+        leave(ctx, customer);
       } else {
         w.seats[seat.table][seat.seat] = true;
         customer.table = seat.table;
@@ -293,7 +400,7 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
     const free = installedMachines(s).filter((i) => w.machineBusy[i] <= 0);
     if (free.length === 0) {
       customer.mood = MOOD.unserved;
-      leave(customer, w);
+      leave(ctx, customer);
     } else {
       const m = free[rng.int(0, free.length - 1)];
       customer.machine = m;
@@ -305,7 +412,6 @@ function tryEnter(ctx: SimContext, seed: number): boolean {
   }
 
   w.customers.push(customer);
-  return true;
 }
 
 // ----------------------------------------------------------------- customers
@@ -320,6 +426,8 @@ function updateCustomers(ctx: SimContext): void {
     switch (c.state) {
       case 'enter': {
         if (step(c, CUSTOMER_SPEED)) {
+          // One litter roll per completed walk segment (arriving at seat/machine).
+          dropLitter(ctx, c);
           if (c.machine >= 0) {
             c.state = 'machine';
             c.timer = 20;
@@ -328,49 +436,49 @@ function updateCustomers(ctx: SimContext): void {
             c.timer = PATIENCE;
           }
         }
-        dropLitter(ctx, c);
         break;
       }
       case 'wait': {
         if (--c.timer <= 0) {
           c.mood = MOOD.unserved;
-          leave(c, w);
+          leave(ctx, c);
         }
         break;
       }
       case 'ordered': {
         if (--c.timer <= 0) {
           c.mood = MOOD.unserved;
-          leave(c, w);
+          leave(ctx, c);
         }
         break;
       }
       case 'served': {
-        if (--c.timer <= 0) leave(c, w);
+        if (--c.timer <= 0) leave(ctx, c);
         break;
       }
       case 'machine': {
         if (--c.timer <= 0) {
           payMachine(ctx, c.machine);
           c.mood = -1;
-          leave(c, w);
+          leave(ctx, c);
         }
         break;
       }
       case 'leave': {
         if (step(c, CUSTOMER_SPEED)) {
           applyMood(ctx, c);
+          spawnLeavingWalker(ctx, c);
           w.customers.splice(i, 1);
           continue;
         }
-        dropLitter(ctx, c);
         break;
       }
     }
   }
 }
 
-function leave(c: Customer, w: World): void {
+function leave(ctx: SimContext, c: Customer): void {
+  const w = ctx.world;
   releaseSeat(w, c);
   c.state = 'leave';
   c.tx = DOOR.x;
@@ -379,17 +487,43 @@ function leave(c: Customer, w: World): void {
     c.bubble = c.mood;
     c.bubbleTimer = 90;
   }
+  // One roll when they stand up / head for the door (C.java:6728).
+  dropLitter(ctx, c);
+}
+
+/** Guest appears outside the door with the same mood face, then walks away. */
+function spawnLeavingWalker(ctx: SimContext, c: Customer): void {
+  const { world: w, rng } = ctx;
+  const dir: 1 | -1 = rng.chance(50) ? 1 : -1;
+  const mood = c.mood >= 0 ? c.mood : c.bubble >= 0 ? c.bubble : -1;
+  w.walkers.push({
+    id: w.nextId++,
+    seed: c.seed,
+    x: DOOR_STREET.x,
+    y: DOOR_STREET.y,
+    dir,
+    decided: true,
+    entering: false,
+    leaving: true,
+    mood,
+    moodTimer: mood >= 0 ? 140 : 0,
+    anim: 0,
+  });
 }
 
 function releaseSeat(w: World, c: Customer): void {
   if (c.table >= 0 && c.seat >= 0) w.seats[c.table][c.seat] = false;
 }
 
-/** 3 % chance per movement segment to drop a piece of litter (C.java:6728). */
+/**
+ * Litter roll when a guest finishes walking to a seat or starts to leave
+ * (C.java:6728 — originally 3 % per segment). Bins cut the chance in half.
+ */
 function dropLitter(ctx: SimContext, c: Customer): void {
   const { state: s, rng } = ctx;
   if (s.litter.length >= 16) return;
-  if (!rng.chance(0.35)) return;
+  const chance = s.upgrades[3] ? 2 : 3;
+  if (!rng.chance(chance)) return;
   s.litter.push({ x: Math.round(c.x), y: Math.round(c.y), kind: rng.int(0, 3) });
 }
 
@@ -457,12 +591,13 @@ function updateMachines(w: World): void {
 function spawnStaff(ctx: SimContext): void {
   const { state: s, world: w, rng } = ctx;
   w.staff = [];
+  let waiterIndex = 0;
   for (const c of s.candidates) {
     if (!c.hired) continue;
-    // Drivers are out on the road all day and never appear in the dining room,
+    // Couriers are out on the road all day and never appear in the dining room,
     // exactly as in the original.
     if (c.type === 2) continue;
-    const home = staffStation(c.type, rng);
+    const home = staffStation(c.type, rng, c.type === 1 ? waiterIndex++ : 0);
     w.staff.push({
       kind: 'staff',
       id: w.nextId++,
@@ -474,6 +609,8 @@ function spawnStaff(ctx: SimContext): void {
       y: DOOR.y,
       tx: home.x,
       ty: home.y,
+      homeX: home.x,
+      homeY: home.y,
       state: 'arrive',
       timer: rng.int(0, 300),
       target: -1,
@@ -484,12 +621,13 @@ function spawnStaff(ctx: SimContext): void {
   }
 }
 
-function staffStation(type: number, rng: Rng): { x: number; y: number } {
+function staffStation(type: number, rng: Rng, index = 0): { x: number; y: number } {
   switch (type) {
     case 0:
-      return { x: OVEN_XS[rng.int(0, OVEN_XS.length - 1)], y: KITCHEN_Y + 12 };
+      return { x: OVEN_XS[rng.int(0, OVEN_XS.length - 1)], y: COOK_Y };
     case 1:
-      return { x: 90, y: KITCHEN_Y + 20 };
+      // Stand by the pizza stacks on the counter; second waiter stands just beside.
+      return { x: COUNTER_X + 18 + index * 14, y: KITCHEN_Y + 10 };
     case 3:
       return { x: 60, y: 132 };
     case 4:
@@ -499,8 +637,19 @@ function staffStation(type: number, rng: Rng): { x: number; y: number } {
   }
 }
 
+/** After closing: leave only when the room (and for cleaners, the floor) is done. */
+function shouldStaffLeave(s: GameState, w: World, st: Staff): boolean {
+  if (w.customers.length > 0) return false;
+  if (st.type === 3) {
+    if (s.litter.length > 0) return false;
+    // Finish the scrap already in progress before walking out.
+    if (st.state === 'toLitter' || st.state === 'busy') return false;
+  }
+  return true;
+}
+
 function updateStaff(ctx: SimContext): void {
-  const { world: w, rng } = ctx;
+  const { state: s, world: w, rng } = ctx;
 
   for (let i = w.staff.length - 1; i >= 0; i--) {
     const st = w.staff[i];
@@ -513,6 +662,12 @@ function updateStaff(ctx: SimContext): void {
       }
       if (step(st, speed)) st.state = 'idle';
       continue;
+    }
+
+    if (!s.open && st.state !== 'leave' && shouldStaffLeave(s, w, st)) {
+      st.state = 'leave';
+      st.carrying = false;
+      st.target = -1;
     }
 
     if (st.state === 'leave') {
@@ -551,7 +706,7 @@ function updateCook(ctx: SimContext, st: Staff, speed: number): void {
   if (st.state === 'idle') {
     const oven = OVEN_XS[rng.int(0, OVEN_XS.length - 1)];
     st.tx = oven;
-    st.ty = KITCHEN_Y + 12;
+    st.ty = COOK_Y;
     st.state = 'toOven';
     return;
   }
@@ -599,20 +754,32 @@ export function bake(ctx: SimContext): void {
  * lets a single waiter keep up with a full room, which the rating economy
  * assumes — the original walked one guest at a time and could never catch up.
  */
+function waiterClaimedTables(w: World, self: Staff): Set<number> {
+  const claimed = new Set<number>();
+  for (const other of w.staff) {
+    if (other === self || other.type !== 1) continue;
+    if ((other.state === 'toTable' || other.state === 'toServe') && other.target >= 0) {
+      claimed.add(other.target);
+    }
+  }
+  return claimed;
+}
+
 function updateWaiter(ctx: SimContext, st: Staff, speed: number): void {
   const { world: w } = ctx;
+  const claimed = waiterClaimedTables(w, st);
 
   const tableSpot = (table: number): { x: number; y: number } => ({
     x: TABLES[table].x,
     y: TABLES[table].y + 11,
   });
 
-  /** Nearest table holding at least one guest in `want`, ignoring `skip`. */
+  /** Nearest free table holding at least one guest in `want`, ignoring `skip`. */
   const nearestTable = (want: 'wait' | 'ordered', skip: number): number => {
     let best = -1;
     let bestDist = Infinity;
-    for (let t = 0; t < TABLES.length; t++) {
-      if (t === skip) continue;
+    for (let t = 0; t < w.seats.length; t++) {
+      if (t === skip || claimed.has(t)) continue;
       if (!w.customers.some((c) => c.table === t && c.state === want)) continue;
       const spot = tableSpot(t);
       const d = Math.hypot(spot.x - st.x, spot.y - st.y);
@@ -648,13 +815,13 @@ function updateWaiter(ctx: SimContext, st: Staff, speed: number): void {
       return;
     }
     if (w.customers.some((c) => c.state === 'ordered')) {
-      st.tx = 96;
-      st.ty = KITCHEN_Y + 14;
+      st.tx = COUNTER_X + 24;
+      st.ty = KITCHEN_Y + 12;
       st.state = 'toKitchen';
       return;
     }
-    st.tx = 90;
-    st.ty = KITCHEN_Y + 20;
+    st.tx = st.homeX;
+    st.ty = st.homeY;
     step(st, speed);
     return;
   }
@@ -731,7 +898,7 @@ function pickAvailable(ctx: SimContext, menu: number[]): number {
 }
 
 function takeOrder(ctx: SimContext, c: Customer): void {
-  const { state: s, world: w, rng } = ctx;
+  const { state: s, rng } = ctx;
   const menu = ownedRecipes(s);
   if (menu.length === 0) return;
   const choice = pickAvailable(ctx, menu);
@@ -746,20 +913,20 @@ function takeOrder(ctx: SimContext, c: Customer): void {
     c.bubble = -1;
   } else {
     c.mood = MOOD.tooExpensive;
-    leave(c, w);
+    leave(ctx, c);
   }
 }
 
 /** The whole basket: one pizza order plus a run of add-on products (C.java:5411). */
 function serve(ctx: SimContext, c: Customer): void {
-  const { state: s, world: w, rng } = ctx;
+  const { state: s, rng } = ctx;
   const menu = ownedRecipes(s);
   if (menu.length === 0) return;
   const choice = pickAvailable(ctx, menu);
 
   if (s.pizzaStock[choice] <= 0) {
     c.mood = MOOD.outOfStock;
-    leave(c, w);
+    leave(ctx, c);
     return;
   }
 
@@ -892,6 +1059,7 @@ function updateDelivery(ctx: SimContext): void {
   const gain = Math.floor((s.netPct * qty * s.pizzaPrice[choice]) / 100);
   s.money += gain;
   s.profits.delivery += gain;
+  spawnCar(ctx, 'delivery');
 }
 
 // ----------------------------------------------------------------- day end
@@ -907,8 +1075,14 @@ function endDay(ctx: SimContext): void {
   s.open = false;
   w.customers = [];
   w.walkers = [];
+  w.cars = [];
   w.staff = [];
-  w.seats = TABLES.map(() => [false, false, false]);
+  w.carCooldown = 20;
+  w.seats = Array.from({ length: tableCount(s.upgrades[UPGRADE_SECOND_FLOOR]) }, () => [
+    false,
+    false,
+    false,
+  ]);
   s.litter = [];
   s.profits = { pizza: 0, product: 0, machine: 0, delivery: 0 };
   s.soldToday = 0;

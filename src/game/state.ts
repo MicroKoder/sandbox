@@ -100,6 +100,11 @@ export interface GameState {
   deliveryTimer: number;
   /** Rolling log of recent events shown on the pizzeria screen. */
   ticker: string[];
+  /**
+   * First-mission coach step index, or −1 when finished / not applicable.
+   * Only mission 0 uses the tutorial.
+   */
+  tutorialStep: number;
 }
 
 export function missionOf(s: GameState): Mission {
@@ -197,6 +202,17 @@ export const pendingMachines = (s: GameState): number[] =>
 
 // --------------------------------------------------------------- clock text
 
+/**
+ * Rain comes in ~3-hour slots. About one slot in four is wet, so gutters and
+ * grey skies show up often enough to notice without owning every afternoon.
+ */
+export function isRaining(s: GameState): boolean {
+  const slot = s.day * 8 + Math.floor(s.tick / (TICKS_PER_HOUR * 3));
+  // Cheap deterministic mix; avoids needing extra save state.
+  const mix = Math.imul(slot ^ (s.day * 31), 1103515245) >>> 0;
+  return mix % 4 === 0;
+}
+
 export function clockOf(s: GameState): string {
   const hour = Math.floor(s.tick / TICKS_PER_HOUR);
   const minute = Math.floor((s.tick % TICKS_PER_HOUR) / TICKS_PER_MINUTE);
@@ -293,6 +309,7 @@ export function createGame(opts: NewGameOptions, rng: Rng): GameState {
     litter: [],
     deliveryTimer: rng.int(100, 200),
     ticker: [],
+    tutorialStep: opts.missionIndex === 0 ? 0 : -1,
   };
   return state;
 }

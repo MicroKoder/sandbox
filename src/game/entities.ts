@@ -1,18 +1,53 @@
-import { TABLE_SLOTS, SEATS_PER_TABLE } from '../data/content.ts';
+import {
+  TABLE_SLOTS,
+  FLOOR2_EXTRA_TABLE_SLOTS,
+  BASE_TABLE_COUNT,
+  SEATS_PER_TABLE,
+} from '../data/content.ts';
+import { CONTENT } from '../core/screen.ts';
 
-/** Interior view is drawn in its own 158x150 pixel space. */
-export const ROOM_W = 158;
-export const ROOM_H = 170;
+/** Interior / exterior view fills the content pane under the sub-tab strip. */
+export const ROOM_W = CONTENT.w;
+export const ROOM_H = CONTENT.h - 11;
 
-export const DOOR = { x: 79, y: 152 };
+export const DOOR = { x: Math.floor(ROOM_W / 2), y: ROOM_H - 18 };
 export const KITCHEN_Y = 34;
-export const OVEN_XS = [112, 126, 140];
+export const OVEN_XS = [ROOM_W - 46, ROOM_W - 32, ROOM_W - 18];
+/** Cooks stand behind the counter, in the kitchen band. */
+export const COOK_Y = KITCHEN_Y - 5;
+/** Left edge of the service counter (pizza box stacks sit on top). */
+export const COUNTER_X = Math.floor(ROOM_W * 0.55);
 
 /** The original stored tables on a coarse tile grid; these are the pixel centres. */
-const TILE_X: Record<number, number> = { 1: 28, 3: 79, 5: 130 };
+const TILE_X: Record<number, number> = {
+  1: Math.floor(ROOM_W * 0.18),
+  3: Math.floor(ROOM_W * 0.5),
+  5: Math.floor(ROOM_W * 0.82),
+};
 const TILE_Y: Record<number, number> = { 2: 58, 3: 82, 4: 106 };
 
-export const TABLES = TABLE_SLOTS.map(([tx, ty]) => ({ x: TILE_X[tx], y: TILE_Y[ty], tx, ty }));
+const slotToTable = ([tx, ty]: readonly [number, number]) => ({
+  x: TILE_X[tx],
+  y: TILE_Y[ty],
+  tx,
+  ty,
+});
+
+/** All table anchors: base four plus the two unlocked by the second floor. */
+export const TABLES = [...TABLE_SLOTS, ...FLOOR2_EXTRA_TABLE_SLOTS].map(slotToTable);
+
+/** How many tables are open for seating given the second-floor upgrade. */
+export function tableCount(secondFloor: boolean): number {
+  return secondFloor ? TABLES.length : BASE_TABLE_COUNT;
+}
+
+/** Grow the seat grid when the second floor unlocks more tables. */
+export function syncWorldSeats(world: World, secondFloor: boolean): void {
+  const n = tableCount(secondFloor);
+  while (world.seats.length < n) {
+    world.seats.push(new Array(SEATS_PER_TABLE).fill(false));
+  }
+}
 
 const SEAT_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [-13, 3],
@@ -80,6 +115,9 @@ export interface Staff {
   y: number;
   tx: number;
   ty: number;
+  /** Idle station the worker returns to. */
+  homeX: number;
+  homeY: number;
   state: StaffState;
   timer: number;
   target: number;
@@ -96,19 +134,42 @@ export interface Walker {
   dir: 1 | -1;
   /** Set once the walker has decided whether to come in. */
   decided: boolean;
+  /** Walking from the pavement up to the door before vanishing inside. */
+  entering: boolean;
+  /** Leaving the pizzeria back onto the street (shows mood bubble). */
+  leaving: boolean;
+  /** Mood face while leaving; −1 when none. */
+  mood: number;
+  moodTimer: number;
   anim: number;
+}
+
+export type CarKind = 'traffic' | 'delivery';
+
+/** Side-view car driving along the exterior road. */
+export interface Car {
+  id: number;
+  kind: CarKind;
+  seed: number;
+  x: number;
+  y: number;
+  dir: 1 | -1;
+  speed: number;
 }
 
 export interface World {
   customers: Customer[];
   staff: Staff[];
   walkers: Walker[];
+  cars: Car[];
   nextId: number;
   /** Vending machine busy timers, one per offered machine. */
   machineBusy: number[];
   /** Which (table, seat) pairs are taken. */
   seats: boolean[][];
   spawnCooldown: number;
+  /** Ticks until the next traffic car may spawn. */
+  carCooldown: number;
 }
 
 export function createWorld(): World {
@@ -116,10 +177,12 @@ export function createWorld(): World {
     customers: [],
     staff: [],
     walkers: [],
+    cars: [],
     nextId: 1,
     machineBusy: [0, 0, 0, 0, 0],
-    seats: TABLES.map(() => new Array(SEATS_PER_TABLE).fill(false)),
+    seats: Array.from({ length: BASE_TABLE_COUNT }, () => new Array(SEATS_PER_TABLE).fill(false)),
     spawnCooldown: 0,
+    carCooldown: 20,
   };
 }
 

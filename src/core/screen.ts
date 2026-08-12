@@ -1,6 +1,11 @@
-/** Logical screen size — identical to the 176x208 MIDP canvas of the original game. */
-export const SCREEN_W = 176;
-export const SCREEN_H = 208;
+/**
+ * Logical screen size.
+ *
+ * The original MIDlet was 176×208. The remake uses a wide 16:10 canvas so the
+ * game reads as a modern browser title while keeping the same pixel-art UI.
+ */
+export const SCREEN_W = 320;
+export const SCREEN_H = 200;
 
 /** Height of the status strip at the top of every in-game screen. */
 export const TOP_BAR_H = 12;
