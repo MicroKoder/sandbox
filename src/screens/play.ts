@@ -231,7 +231,9 @@ export class PlayScreen implements Screen {
     const nudge = s.speed > 0 && this.tab !== TAB_PIZZERIA && Math.floor(app.clock / 500) % 2 === 0;
     this.drawTabStrip(p, s, nudge, app.clock);
     this.drawSoftkeys(p, s);
-    drawTutorialCoach(p, s, app.clock);
+    // Tip bubble only on the pizzeria view — elsewhere it covers buy lists/buttons.
+    // Tab highlighting still runs on every screen via drawTabStrip.
+    if (this.tab === TAB_PIZZERIA) drawTutorialCoach(p, s, app.clock);
 
     if (this.message) dialog(p, this.message);
   }

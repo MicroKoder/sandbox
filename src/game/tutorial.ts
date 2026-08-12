@@ -1,5 +1,6 @@
 import { PIZZAS, PRODUCTS } from '../data/content.ts';
 import {
+  bakeableCount,
   hasTables,
   hiredOf,
   missionOf,
@@ -70,6 +71,20 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     text: () =>
       'ПОДНИМИ ЦЕНЫ ВЫШЕ СЕБЕСТОИМОСТИ В «ЦЕНЫ В МЕНЮ» — ИНАЧЕ ТОРГОВАТЬ НЕВЫГОДНО!',
     done: (s) => !menuAtCost(s),
+  },
+  {
+    tab: 3,
+    sub: 0,
+    text: () =>
+      'ЗАКУПИ СКЛАД: КУПИ ИНГРЕДИЕНТЫ ВО ВКЛАДКЕ «ИНГРЕДИЕНТЫ» → «СКЛАД», ЧТОБЫ ПЕЧЬ ПИЦЦУ.',
+    done: (s) => ownedRecipes(s).some((r) => bakeableCount(s, r) > 0),
+  },
+  {
+    tab: 4,
+    sub: 0,
+    text: () =>
+      'КУПЕРЬ КУПИ НАПИТКИ И ЗАКУСКИ ВО ВКЛАДКЕ «ПРОДУКТЫ» → «СКЛАД».',
+    done: (s) => suppliedProducts(s).some((i) => s.productStock[i] > 0),
   },
   {
     tab: 6,

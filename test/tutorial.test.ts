@@ -15,6 +15,8 @@ import {
   marketOf,
   supplyIngredient,
   supplyProduct,
+  tradeIngredient,
+  tradeProduct,
   unsuppliedIngredients,
 } from '../src/game/state.ts';
 import {
@@ -60,7 +62,7 @@ test('mission 0 starts on the first coach tip; other missions skip the coach', (
 
 test('coach tips stay until their goal is met, then advance in order', () => {
   const s = freshMission0();
-  assert.equal(TUTORIAL_STEPS.length, 7);
+  assert.equal(TUTORIAL_STEPS.length, 9);
 
   advanceTutorial(s);
   assert.equal(s.tutorialStep, 0, 'tables not bought yet');
@@ -106,11 +108,25 @@ test('coach tips stay until their goal is met, then advance in order', () => {
   assert.equal(menuAtCost(s), false);
   advanceTutorial(s);
   assert.equal(s.tutorialStep, 6);
+  assert.equal(tutorialHighlightTab(s), 3);
+  assert.match(tutorialText(s) ?? '', /ИНГРЕДИЕНТ/);
+
+  for (let i = 0; i < s.ingredientStock.length; i++) {
+    if (s.ingredientSupplied[i]) tradeIngredient(s, i, 100);
+  }
+  advanceTutorial(s);
+  assert.equal(s.tutorialStep, 7);
+  assert.equal(tutorialHighlightTab(s), 4);
+  assert.match(tutorialText(s) ?? '', /ПРОДУКТ/);
+
+  tradeProduct(s, product, 20);
+  advanceTutorial(s);
+  assert.equal(s.tutorialStep, 8);
   assert.equal(tutorialHighlightTab(s), 6);
   assert.match(tutorialText(s) ?? '', /СТАТИСТИКА/);
 
   advanceTutorial(s, { statsOpen: false });
-  assert.equal(s.tutorialStep, 6);
+  assert.equal(s.tutorialStep, 8);
 
   advanceTutorial(s, { statsOpen: true });
   assert.equal(s.tutorialStep, -1);
