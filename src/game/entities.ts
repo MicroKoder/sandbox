@@ -33,7 +33,7 @@ const slotToTable = ([tx, ty]: readonly [number, number]) => ({
   ty,
 });
 
-/** All table anchors: base five plus the two unlocked by the second floor. */
+/** All table anchors: base four plus the two unlocked by the second floor. */
 export const TABLES = [...TABLE_SLOTS, ...FLOOR2_EXTRA_TABLE_SLOTS].map(slotToTable);
 
 /** How many tables are open for seating given the second-floor upgrade. */

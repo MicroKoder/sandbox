@@ -89,14 +89,14 @@ test('the second floor adds two dining tables', () => {
     rng,
   );
   const ctx = createContext(s, rng);
-  assert.equal(ctx.world.seats.length, 5);
-  assert.equal(tableCount(false), 5);
-  assert.equal(tableCount(true), 7);
+  assert.equal(ctx.world.seats.length, 4);
+  assert.equal(tableCount(false), 4);
+  assert.equal(tableCount(true), 6);
 
   s.money = 100000;
   installUpgrade(s, UPGRADE_SECOND_FLOOR);
   tick(ctx);
-  assert.equal(ctx.world.seats.length, 7);
+  assert.equal(ctx.world.seats.length, 6);
   assert.ok(ctx.world.seats.every((row) => row.length === 3));
 });
 
