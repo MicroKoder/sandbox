@@ -4,7 +4,7 @@ import test from 'node:test';
 import { PIZZAS, UPGRADE_SECOND_FLOOR, UPGRADE_TABLES } from '../src/data/content.ts';
 import { MISSIONS } from '../src/data/missions.ts';
 import { Rng } from '../src/game/rng.ts';
-import { tableCount } from '../src/game/entities.ts';
+import { tableCount, seatPos, syncWorldSeats } from '../src/game/entities.ts';
 import {
   createContext,
   pizzaAcceptance,
@@ -98,6 +98,85 @@ test('the second floor adds two dining tables', () => {
   tick(ctx);
   assert.equal(ctx.world.seats.length, 7);
   assert.ok(ctx.world.seats.every((row) => row.length === 3));
+});
+
+test('two waiters do not claim the same waiting table', () => {
+  const rng = new Rng(7);
+  const s = createGame(
+    { playerName: 'ТЕСТ', difficulty: 1, campaign: false, missionIndex: 0 },
+    rng,
+  );
+  s.money = 200000;
+  installUpgrade(s, UPGRADE_TABLES);
+  installUpgrade(s, UPGRADE_SECOND_FLOOR);
+  hireBest(s, 1);
+  hireBest(s, 1);
+  const waiters = s.candidates.filter((c) => c.hired && c.type === 1);
+  assert.equal(waiters.length, 2);
+
+  const ctx = createContext(s, rng);
+  const w = ctx.world;
+  syncWorldSeats(w, true);
+
+  const mkStaff = (c: (typeof waiters)[0], x: number, y: number) => {
+    w.staff.push({
+      kind: 'staff',
+      id: w.nextId++,
+      type: c.type,
+      slot: c.slot,
+      speed: c.speed,
+      skill: c.skill,
+      x,
+      y,
+      tx: x,
+      ty: y,
+      state: 'idle',
+      timer: 0,
+      target: -1,
+      carrying: false,
+      facing: 1,
+      anim: 0,
+    });
+  };
+  mkStaff(waiters[0], 40, 100);
+  mkStaff(waiters[1], 80, 100);
+
+  const mkGuest = (table: number, seat: number) => {
+    const pos = seatPos(table, seat);
+    w.seats[table][seat] = true;
+    w.customers.push({
+      kind: 'customer',
+      id: w.nextId++,
+      seed: table + 1,
+      x: pos.x,
+      y: pos.y,
+      tx: pos.x,
+      ty: pos.y,
+      state: 'wait',
+      timer: 600,
+      table,
+      seat,
+      machine: -1,
+      mood: -1,
+      bubble: -1,
+      bubbleTimer: 0,
+      facing: 1,
+      anim: 0,
+    });
+  };
+  mkGuest(0, 0);
+  mkGuest(1, 0);
+
+  s.open = true;
+  s.tick = 5000;
+  // Buy a cheap recipe and stock pizza so takeOrder can succeed without changing targets mid-test.
+  buyRecipe(s, 0);
+  s.pizzaStock[0] = 20;
+
+  tick(ctx);
+  const onTables = w.staff.filter((st) => st.type === 1 && st.state === 'toTable');
+  assert.equal(onTables.length, 2, 'both waiters head out for orders');
+  assert.notEqual(onTables[0].target, onTables[1].target, 'they pick different tables');
 });
 
 // ------------------------------------------------------------------ pricing

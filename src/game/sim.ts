@@ -749,20 +749,32 @@ export function bake(ctx: SimContext): void {
  * lets a single waiter keep up with a full room, which the rating economy
  * assumes — the original walked one guest at a time and could never catch up.
  */
+function waiterClaimedTables(w: World, self: Staff): Set<number> {
+  const claimed = new Set<number>();
+  for (const other of w.staff) {
+    if (other === self || other.type !== 1) continue;
+    if ((other.state === 'toTable' || other.state === 'toServe') && other.target >= 0) {
+      claimed.add(other.target);
+    }
+  }
+  return claimed;
+}
+
 function updateWaiter(ctx: SimContext, st: Staff, speed: number): void {
   const { world: w } = ctx;
+  const claimed = waiterClaimedTables(w, st);
 
   const tableSpot = (table: number): { x: number; y: number } => ({
     x: TABLES[table].x,
     y: TABLES[table].y + 11,
   });
 
-  /** Nearest table holding at least one guest in `want`, ignoring `skip`. */
+  /** Nearest free table holding at least one guest in `want`, ignoring `skip`. */
   const nearestTable = (want: 'wait' | 'ordered', skip: number): number => {
     let best = -1;
     let bestDist = Infinity;
     for (let t = 0; t < w.seats.length; t++) {
-      if (t === skip) continue;
+      if (t === skip || claimed.has(t)) continue;
       if (!w.customers.some((c) => c.table === t && c.state === want)) continue;
       const spot = tableSpot(t);
       const d = Math.hypot(spot.x - st.x, spot.y - st.y);
