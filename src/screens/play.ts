@@ -1055,7 +1055,8 @@ export class PlayScreen implements Screen {
         return;
       case 8:
         if (this.sub === 1) {
-          this.confirm(app, CONFIRM.doUpgrade, () => {
+          const upgrade = UPGRADES[id];
+          this.confirm(app, `${CONFIRM.doUpgrade}\n \n${upgrade.name}\n${upgrade.desc}`, () => {
             const r = installUpgrade(s, id);
             if (!r.ok) fail(r.message ?? '');
             else app.cue('upgrade');
