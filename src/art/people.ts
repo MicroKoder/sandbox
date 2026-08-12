@@ -163,7 +163,7 @@ export const STAFF_LOOKS: PersonLook[] = [
     hat: 'bow',
     hatColor: '#c44a3a',
   },
-  // водитель
+  // курьер
   {
     skin: '#d9a173',
     hair: '#6b4226',

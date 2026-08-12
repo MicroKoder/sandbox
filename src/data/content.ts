@@ -197,8 +197,8 @@ export const ADS: AdCampaign[] = [
 
 export type StaffKind = 0 | 1 | 2 | 3 | 4;
 
-export const STAFF_KINDS = ['ПОВАРА', 'ОФИЦИАНТЫ', 'ВОДИТЕЛИ', 'УБОРЩИКИ', 'ОХРАННИКИ'] as const;
-export const STAFF_KIND_SINGULAR = ['ПОВАР', 'ОФИЦИАНТ', 'ВОДИТЕЛЬ', 'УБОРЩИК', 'ОХРАННИК'] as const;
+export const STAFF_KINDS = ['ПОВАРА', 'ОФИЦИАНТЫ', 'КУРЬЕРЫ', 'УБОРЩИКИ', 'ОХРАННИКИ'] as const;
+export const STAFF_KIND_SINGULAR = ['ПОВАР', 'ОФИЦИАНТ', 'КУРЬЕР', 'УБОРЩИК', 'ОХРАННИК'] as const;
 
 /** The twenty first names the labour exchange draws from (data.str[132..151]). */
 export const STAFF_NAMES = [

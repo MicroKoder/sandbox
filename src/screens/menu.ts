@@ -17,6 +17,7 @@ import {
   row,
   scrollbar,
   softkeys,
+  uiHover,
 } from '../ui/widgets.ts';
 import { drawLogoMark, menuBackground, scrollEmotionsHelp, scrollText } from './common.ts';
 import { PlayScreen } from './play.ts';
@@ -92,9 +93,10 @@ export class MenuScreen implements Screen {
       const y = top + i * 19;
       const on = i === this.index;
       const disabled = item.enabled ? !item.enabled(app) : false;
-      p.panel(16, y, SCREEN_W - 32, 15, { fill: on ? C.selBg : C.panel, raised: !on });
-      if (on) p.stroke(16, y, SCREEN_W - 32, 15, C.gold);
-      p.text(item.label, SCREEN_W / 2, y + 4, disabled ? C.inkFaint : on ? C.selInk : C.ink, 'center');
+      const hovered = !on && !disabled && uiHover(16, y, SCREEN_W - 32, 15);
+      p.panel(16, y, SCREEN_W - 32, 15, { fill: on || hovered ? C.selBg : C.panel, raised: !on });
+      if (on || hovered) p.stroke(16, y, SCREEN_W - 32, 15, C.gold);
+      p.text(item.label, SCREEN_W / 2, y + 4, disabled ? C.inkFaint : on || hovered ? C.selInk : C.ink, 'center');
     });
 
     softkeys(p, undefined, S.exit, `${app.settings.playerName}`);
@@ -145,9 +147,10 @@ export class SettingsScreen implements Screen {
     rows.forEach(([label, value], i) => {
       const y = 30 + i * 20;
       const on = i === this.index;
-      p.panel(10, y, SCREEN_W - 20, 16, { fill: on ? C.selBg : C.panel, raised: !on });
-      if (on) p.stroke(10, y, SCREEN_W - 20, 16, C.gold);
-      p.text(label, 16, y + 5, on ? C.selInk : C.inkDim);
+      const hovered = !on && uiHover(10, y, SCREEN_W - 20, 16);
+      p.panel(10, y, SCREEN_W - 20, 16, { fill: on || hovered ? C.selBg : C.panel, raised: !on });
+      if (on || hovered) p.stroke(10, y, SCREEN_W - 20, 16, C.gold);
+      p.text(label, 16, y + 5, on || hovered ? C.selInk : C.inkDim);
       p.text(value, SCREEN_W - 16, y + 5, C.gold, 'right');
     });
 
@@ -390,9 +393,10 @@ export class GameTypeScreen implements Screen {
     [S.newCampaign, S.singleMission].forEach((label, i) => {
       const y = 76 + i * 22;
       const on = i === this.index;
-      p.panel(16, y, SCREEN_W - 32, 17, { fill: on ? C.selBg : C.panel, raised: !on });
-      if (on) p.stroke(16, y, SCREEN_W - 32, 17, C.gold);
-      p.text(label, SCREEN_W / 2, y + 5, on ? C.selInk : C.ink, 'center');
+      const hovered = !on && uiHover(16, y, SCREEN_W - 32, 17);
+      p.panel(16, y, SCREEN_W - 32, 17, { fill: on || hovered ? C.selBg : C.panel, raised: !on });
+      if (on || hovered) p.stroke(16, y, SCREEN_W - 32, 17, C.gold);
+      p.text(label, SCREEN_W / 2, y + 5, on || hovered ? C.selInk : C.ink, 'center');
     });
 
     softkeys(p, S.back, S.next);

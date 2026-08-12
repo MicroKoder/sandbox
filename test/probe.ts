@@ -32,7 +32,7 @@ console.log(
     .join(','),
 );
 console.log(
-  'персонал: повара=%d официанты=%d водители=%d уборщики=%d охрана=%d',
+  'персонал: повара=%d официанты=%d курьеры=%d уборщики=%d охрана=%d',
   hiredOf(s, 0).length,
   hiredOf(s, 1).length,
   hiredOf(s, 2).length,

@@ -67,10 +67,12 @@ import {
   formatRating,
   listWindow,
   notice,
+  paintHover,
   row,
   scrollbar,
   softkeys,
   subTabs,
+  uiHover,
   type AdjustButtonHit,
 } from '../ui/widgets.ts';
 import { ConfirmScreen, EndingScreen, HelpScreen, MenuScreen, saveSession } from './menu.ts';
@@ -266,12 +268,14 @@ export class PlayScreen implements Screen {
     for (let i = 0; i < TAB_COUNT; i++) {
       const y = TAB_TOP + i * TAB_H;
       const active = i === this.tab;
+      const hovered = !active && uiHover(x, y, TAB_STRIP_W, TAB_H);
       if (active) {
         p.gradientV(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, C.selBgAlt, C.selBg);
         p.hLine(x + 1, y, TAB_STRIP_W - 1, C.gold);
       } else if (warn[i]) {
         p.fill(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, '#5a2118');
       }
+      if (hovered) paintHover(p, x, y, TAB_STRIP_W, TAB_H);
       if (this.tabFocus && active) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
       if (nudge && i === TAB_PIZZERIA) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
 
@@ -955,7 +959,9 @@ export class PlayScreen implements Screen {
     switch (this.tab) {
       case 2:
         if (this.sub === 1) {
-          this.confirm(app, CONFIRM.buyRecipe, () => {
+          const pizza = PIZZAS[id];
+          const recipe = pizza.ingredients.map((ing) => INGREDIENTS[ing].name).join(', ');
+          this.confirm(app, `${CONFIRM.buyRecipe}\n \n${pizza.name}\n${recipe}`, () => {
             const r = buyRecipe(s, id);
             if (!r.ok) fail(r.message ?? '');
             else done();
@@ -1171,12 +1177,15 @@ class PauseScreen implements Screen {
     this.items.forEach((label, i) => {
       const iy = y + 16 + i * 16;
       const on = i === this.index;
+      const hovered = !on && uiHover(22, iy - 2, SCREEN_W - 44, 13);
       if (on) {
         p.gradientV(22, iy - 2, SCREEN_W - 44, 13, C.selBgAlt, C.selBg);
         p.stroke(22, iy - 2, SCREEN_W - 44, 13, C.gold);
+      } else if (hovered) {
+        paintHover(p, 22, iy - 2, SCREEN_W - 44, 13);
       }
       const text = i === 2 ? `${S.hints}: ${app.settings.hints ? S.on : S.off}` : label;
-      p.text(text, SCREEN_W / 2, iy + 1, on ? C.selInk : C.ink, 'center');
+      p.text(text, SCREEN_W / 2, iy + 1, on || hovered ? C.selInk : C.ink, 'center');
     });
   }
 

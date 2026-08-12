@@ -3,6 +3,7 @@ import { Rng } from '../game/rng.ts';
 import type { GameState } from '../game/state.ts';
 import { createContext, type SimContext } from '../game/sim.ts';
 import type { Input, Key } from '../ui/input.ts';
+import { setUiPointer } from '../ui/widgets.ts';
 import { loadRecords, loadSettings, saveSettings, type Records, type Settings } from './profile.ts';
 import type { Cue, SoundBank } from './sound.ts';
 
@@ -34,6 +35,8 @@ export class App {
   rng = new Rng();
   /** Wall-clock milliseconds since the app started, for animation. */
   clock = 0;
+  /** Latest pointer position in logical pixels, or null when outside the stage. */
+  pointer: { x: number; y: number } | null = null;
 
   private stack: Screen[] = [];
   private taps: Array<{ x: number; y: number }> = [];
@@ -135,7 +138,17 @@ export class App {
     this.top?.update?.(this, dt);
   }
 
+  /** Updates the hover cursor used by clickable widgets. */
+  hover(x: number, y: number): void {
+    this.pointer = { x, y };
+  }
+
+  clearHover(): void {
+    this.pointer = null;
+  }
+
   draw(p: Painter): void {
+    setUiPointer(this.pointer);
     this.top?.draw(this, p);
   }
 }

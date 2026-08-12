@@ -113,6 +113,12 @@ body {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
+.help-toggle:hover {
+  border-color: var(--accent-2);
+  background: linear-gradient(180deg, #4a3a2e, #2c221c);
+  color: #ffe08a;
+}
+
 .help-toggle:active {
   transform: scale(0.96);
 }

@@ -71,7 +71,7 @@ export const DEVIATIONS = {
   adsAffectFootfall: true,
 } as const;
 
-const CUSTOMER_SPEED = 0.75;
+const CUSTOMER_SPEED = 1.25;
 /**
  * How long a seated guest will wait, in ticks. The original used 300 (half a
  * game hour) which no single waiter could ever meet, so almost every visitor

@@ -3,6 +3,27 @@ import { C } from '../core/palette.ts';
 import type { Painter, Rect } from '../core/painter.ts';
 import { SCREEN_W, SCREEN_H, TOP_BAR_H, BOTTOM_BAR_H } from '../core/screen.ts';
 
+/** Latest pointer position in logical pixels; set each frame from the App. */
+let uiPointer: { x: number; y: number } | null = null;
+
+export function setUiPointer(point: { x: number; y: number } | null): void {
+  uiPointer = point;
+}
+
+export function uiHover(x: number, y: number, w: number, h: number): boolean {
+  const p = uiPointer;
+  if (!p) return false;
+  return p.x >= x && p.x < x + w && p.y >= y && p.y < y + h;
+}
+
+/** Soft gold wash used when the pointer rests on a clickable control. */
+export function paintHover(p: Painter, x: number, y: number, w: number, h: number): void {
+  p.setAlpha(0.35);
+  p.fill(x, y, w, h, C.selBgAlt);
+  p.setAlpha(1);
+  p.stroke(x, y, w, h, C.gold);
+}
+
 /** Title strip drawn at the top of menu-style screens. */
 export function header(p: Painter, title: string): void {
   p.gradientV(0, 0, SCREEN_W, TOP_BAR_H, C.panelHi, C.panel);
@@ -15,6 +36,12 @@ export function softkeys(p: Painter, left?: string, right?: string, middle?: str
   const y = SCREEN_H - BOTTOM_BAR_H;
   p.gradientV(0, y, SCREEN_W, BOTTOM_BAR_H, C.panel, C.panelLo);
   p.hLine(0, y, SCREEN_W, C.line);
+  const third = Math.floor(SCREEN_W / 3);
+  if (left && uiHover(0, y, third, BOTTOM_BAR_H)) paintHover(p, 0, y, third, BOTTOM_BAR_H);
+  if (middle && uiHover(third, y, third, BOTTOM_BAR_H)) paintHover(p, third, y, third, BOTTOM_BAR_H);
+  if (right && uiHover(SCREEN_W - third, y, third, BOTTOM_BAR_H)) {
+    paintHover(p, SCREEN_W - third, y, third, BOTTOM_BAR_H);
+  }
   if (left) p.text(left, 3, y + 3, C.ink);
   if (right) p.text(right, SCREEN_W - 3, y + 3, C.ink, 'right');
   if (middle) p.text(middle, SCREEN_W / 2, y + 3, C.inkDim, 'center');
@@ -49,10 +76,13 @@ export function listWindow(selected: number, total: number, rowH: number, areaH:
 
 /** Background for one list row, highlighted when selected. */
 export function row(p: Painter, x: number, y: number, w: number, h: number, selected: boolean): void {
+  const hovered = !selected && uiHover(x, y, w, h);
   if (selected) {
     p.gradientV(x, y, w, h, C.selBgAlt, C.selBg);
     p.hLine(x, y, w, C.gold);
     p.hLine(x, y + h - 1, w, C.panelLo);
+  } else if (hovered) {
+    paintHover(p, x, y, w, h);
   } else {
     p.dottedLine(x, y + h - 1, w, C.lineSoft);
   }
@@ -96,10 +126,12 @@ export function dialog(p: Painter, text: string, opts?: { yes?: string; no?: str
       const cx = x + slot * i + slot / 2;
       const active = (opts?.selected ?? 0) === i;
       const w = p.measure(label) + 10;
-      if (active) {
-        p.box(Math.round(cx - w / 2), by - 2, w, 11, C.selBgAlt, C.gold);
+      const bx = Math.round(cx - w / 2);
+      const hovered = uiHover(bx, by - 2, w, 11);
+      if (active || hovered) {
+        p.box(bx, by - 2, w, 11, hovered && !active ? C.panelHi : C.selBgAlt, C.gold);
       }
-      p.text(label, cx, by + 1, active ? C.selInk : C.inkDim, 'center');
+      p.text(label, cx, by + 1, active || hovered ? C.selInk : C.inkDim, 'center');
     });
   }
 }
@@ -123,13 +155,16 @@ export function subTabs(
   labels.forEach((label, i) => {
     const bx = x + slot * i;
     const on = i === active;
+    const hovered = !on && uiHover(bx, y, slot - 1, 10);
     p.gradientV(bx, y, slot - 1, 10, on ? C.selBgAlt : C.panelLo, on ? C.selBg : C.bar);
     if (on) p.hLine(bx, y, slot - 1, C.gold);
-    p.text(label, bx + slot / 2, y + 2, on ? C.selInk : C.inkFaint, 'center');
+    else if (hovered) paintHover(p, bx, y, slot - 1, 10);
+    p.text(label, bx + slot / 2, y + 2, on || hovered ? C.selInk : C.inkFaint, 'center');
   });
   // Tab-to-switch marker on the right edge of the strip.
   if (switchable) {
     p.fill(x + usable, y, arrowW, 10, C.bar);
+    if (uiHover(x + usable, y, arrowW, 10)) paintHover(p, x + usable, y, arrowW, 10);
     p.text('⇄', x + usable + arrowW / 2, y + 2, C.gold, 'center');
   }
   p.hLine(x, y + 10, w, C.line);
@@ -152,9 +187,16 @@ export function miniButton(
   opts?: { positive?: boolean },
 ): void {
   const positive = opts?.positive ?? !label.startsWith('-');
-  p.panel(x, y, w, h, { fill: C.panelHi, raised: true });
-  p.stroke(x, y, w, h, positive ? C.basil : C.tomato);
-  p.text(label, x + w / 2, y + Math.max(1, Math.floor((h - FONT_HEIGHT) / 2)), positive ? C.basil : C.tomato, 'center');
+  const hovered = uiHover(x, y, w, h);
+  p.panel(x, y, w, h, { fill: hovered ? C.selBg : C.panelHi, raised: true });
+  p.stroke(x, y, w, h, hovered ? C.gold : positive ? C.basil : C.tomato);
+  p.text(
+    label,
+    x + w / 2,
+    y + Math.max(1, Math.floor((h - FONT_HEIGHT) / 2)),
+    hovered ? C.selInk : positive ? C.basil : C.tomato,
+    'center',
+  );
 }
 
 export interface AdjustButtonHit extends Rect {

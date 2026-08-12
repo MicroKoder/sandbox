@@ -50,6 +50,7 @@ class MainScene extends Phaser.Scene {
       pointer.event?.preventDefault?.();
     });
     this.image.on('pointermove', (pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
+      this.app.hover(Math.floor(localX), Math.floor(localY));
       if (!this.drag || !pointer.isDown) return;
       const dy = localY - this.drag.y;
       const dx = localX - this.drag.x;
@@ -60,6 +61,9 @@ class MainScene extends Phaser.Scene {
       this.drag.x = localX;
       this.drag.y = localY;
     });
+    this.image.on('pointerout', () => {
+      this.app.clearHover();
+    });
     this.image.on('pointerup', (_pointer: Phaser.Input.Pointer, localX: number, localY: number) => {
       const drag = this.drag;
       this.drag = null;
@@ -68,6 +72,7 @@ class MainScene extends Phaser.Scene {
     });
     this.image.on('pointerupoutside', () => {
       this.drag = null;
+      this.app.clearHover();
     });
 
     const canvas = this.game.canvas;
