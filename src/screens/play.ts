@@ -58,6 +58,11 @@ import {
   type Speed,
 } from '../game/state.ts';
 import { tick, warnings } from '../game/sim.ts';
+import {
+  advanceTutorial,
+  tutorialHighlightTab,
+  tutorialPreferredSub,
+} from '../game/tutorial.ts';
 import type { Key } from '../ui/input.ts';
 import {
   adjustButtons,
@@ -80,6 +85,7 @@ import {
 } from '../ui/widgets.ts';
 import { ConfirmScreen, EndingScreen, HelpScreen, MenuScreen, saveSession } from './menu.ts';
 import { drawExterior, drawInterior } from './pizzeria.ts';
+import { drawTutorialCoach } from './tutorial.ts';
 
 const TAB_COUNT = 11;
 /** The pizzeria view — the only screen on which the clock advances. */
@@ -165,6 +171,8 @@ export class PlayScreen implements Screen {
     if (!session) return;
     const s = session.state;
 
+    advanceTutorial(s, { statsOpen: this.tab === 6 && this.sub === 1 });
+
     if (this.messageTimer > 0) {
       this.messageTimer -= dt;
       if (this.messageTimer <= 0) this.message = null;
@@ -221,8 +229,9 @@ export class PlayScreen implements Screen {
     // While the clock is stopped because the player is off in a menu, nudge them
     // back to the pizzeria tab with a slow blink.
     const nudge = s.speed > 0 && this.tab !== TAB_PIZZERIA && Math.floor(app.clock / 500) % 2 === 0;
-    this.drawTabStrip(p, s, nudge);
+    this.drawTabStrip(p, s, nudge, app.clock);
     this.drawSoftkeys(p, s);
+    drawTutorialCoach(p, s, app.clock);
 
     if (this.message) dialog(p, this.message);
   }
@@ -279,33 +288,40 @@ export class PlayScreen implements Screen {
     drawHelpButton(p, HELP_BTN.x, HELP_BTN.y);
   }
 
-  private drawTabStrip(p: Painter, s: GameState, nudge: boolean): void {
+  private drawTabStrip(p: Painter, s: GameState, nudge: boolean, clock: number): void {
     const x = SCREEN_W - TAB_STRIP_W;
     p.fill(x, TOP_BAR_H, TAB_STRIP_W, SCREEN_H - TOP_BAR_H - BOTTOM_BAR_H, C.bar);
     p.vLine(x, TOP_BAR_H, SCREEN_H - TOP_BAR_H - BOTTOM_BAR_H, C.line);
 
     const icons = getTabIcons();
     const warn = warnings(s);
+    const coachTab = tutorialHighlightTab(s);
+    const pulse = Math.floor(clock / 400) % 2 === 0;
 
     for (let i = 0; i < TAB_COUNT; i++) {
       const y = TAB_TOP + i * TAB_H;
       const active = i === this.tab;
       const hovered = !active && uiHover(x, y, TAB_STRIP_W, TAB_H);
+      const coached = coachTab === i;
       if (active) {
         p.gradientV(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, C.selBgAlt, C.selBg);
         p.hLine(x + 1, y, TAB_STRIP_W - 1, C.gold);
       } else if (warn[i]) {
         p.fill(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, '#5a2118');
+      } else if (coached) {
+        p.gradientV(x + 1, y, TAB_STRIP_W - 1, TAB_H - 1, C.selBgAlt, C.panel);
       }
       if (hovered) paintHover(p, x, y, TAB_STRIP_W, TAB_H);
       if (this.tabFocus && active) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
       if (nudge && i === TAB_PIZZERIA) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
+      if (coached && pulse) p.stroke(x, y - 1, TAB_STRIP_W, TAB_H, C.gold);
 
       const icon = icons[i];
       if (icon) {
         p.blit(icon, x + 2 + (TAB_STRIP_W - 2 - TAB_ICON_W) / 2, y + (TAB_H - 1 - TAB_ICON_H) / 2);
       }
       if (warn[i] && !active) p.fill(x + TAB_STRIP_W - 4, y + 2, 2, 2, C.tomato);
+      if (coached && !active) p.fill(x + TAB_STRIP_W - 4, y + TAB_H - 4, 2, 2, C.gold);
     }
   }
 
@@ -845,10 +861,10 @@ export class PlayScreen implements Screen {
         this.cycleSub(app, s);
         return;
       case 'prevTab':
-        this.switchTab(app, -1);
+        this.switchTab(app, s, -1);
         return;
       case 'nextTab':
-        this.switchTab(app, 1);
+        this.switchTab(app, s, 1);
         return;
       default:
         break;
@@ -864,16 +880,29 @@ export class PlayScreen implements Screen {
     }
 
     if (this.tabFocus) {
-      this.tabStripKey(app, key);
+      this.tabStripKey(app, s, key);
       return;
     }
 
     this.contentKey(app, s, key);
   }
 
-  private switchTab(app: App, delta: number): void {
-    this.tab = (this.tab + delta + TAB_COUNT) % TAB_COUNT;
-    this.sub = this.tab === TAB_PIZZERIA ? 1 : 0;
+  private switchTab(app: App, s: GameState, delta: number): void {
+    this.openTab(app, s, (this.tab + delta + TAB_COUNT) % TAB_COUNT);
+  }
+
+  /** Opens a tab and, during the coach tip, jumps to the preferred sub-screen. */
+  private openTab(app: App, s: GameState, index: number): void {
+    this.tab = index;
+    if (tutorialHighlightTab(s) === index) {
+      this.sub = tutorialPreferredSub(s);
+      if (index === 10) {
+        if (hiredOf(s, 0).length === 0) this.staffKind = 0;
+        else if (hiredOf(s, 1).length === 0) this.staffKind = 1;
+      }
+    } else {
+      this.sub = index === TAB_PIZZERIA ? 1 : 0;
+    }
     this.tabFocus = false;
     app.cue('select');
   }
@@ -894,15 +923,11 @@ export class PlayScreen implements Screen {
     app.cue('select');
   }
 
-  private tabStripKey(app: App, key: Key): void {
+  private tabStripKey(app: App, s: GameState, key: Key): void {
     if (key === 'up') {
-      this.tab = (this.tab + TAB_COUNT - 1) % TAB_COUNT;
-      this.sub = this.tab === TAB_PIZZERIA ? 1 : 0;
-      app.cue('select');
+      this.openTab(app, s, (this.tab + TAB_COUNT - 1) % TAB_COUNT);
     } else if (key === 'down') {
-      this.tab = (this.tab + 1) % TAB_COUNT;
-      this.sub = this.tab === TAB_PIZZERIA ? 1 : 0;
-      app.cue('select');
+      this.openTab(app, s, (this.tab + 1) % TAB_COUNT);
     } else if (key === 'select' || key === 'left') {
       this.tabFocus = false;
       app.cue('select');
@@ -1076,10 +1101,13 @@ export class PlayScreen implements Screen {
     // Tab strip.
     if (x >= SCREEN_W - TAB_STRIP_W && y >= TAB_TOP && y < TAB_TOP + TAB_COUNT * TAB_H) {
       const index = Math.floor((y - TAB_TOP) / TAB_H);
-      if (index !== this.tab) {
-        this.tab = index;
-        this.sub = index === TAB_PIZZERIA ? 1 : 0;
-        app.cue('select');
+      if (index !== this.tab) this.openTab(app, s, index);
+      else if (tutorialHighlightTab(s) === index) {
+        this.sub = tutorialPreferredSub(s);
+        if (index === 10) {
+          if (hiredOf(s, 0).length === 0) this.staffKind = 0;
+          else if (hiredOf(s, 1).length === 0) this.staffKind = 1;
+        }
       }
       this.tabFocus = false;
       return;

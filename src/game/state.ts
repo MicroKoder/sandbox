@@ -100,6 +100,11 @@ export interface GameState {
   deliveryTimer: number;
   /** Rolling log of recent events shown on the pizzeria screen. */
   ticker: string[];
+  /**
+   * First-mission coach step index, or −1 when finished / not applicable.
+   * Only mission 0 uses the tutorial.
+   */
+  tutorialStep: number;
 }
 
 export function missionOf(s: GameState): Mission {
@@ -304,6 +309,7 @@ export function createGame(opts: NewGameOptions, rng: Rng): GameState {
     litter: [],
     deliveryTimer: rng.int(100, 200),
     ticker: [],
+    tutorialStep: opts.missionIndex === 0 ? 0 : -1,
   };
   return state;
 }
