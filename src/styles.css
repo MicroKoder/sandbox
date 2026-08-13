@@ -17,6 +17,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  --masthead-h: 48px;
 }
 
 * {
@@ -29,6 +30,7 @@ body {
   height: 100%;
   height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -41,9 +43,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  user-select: none;
 }
 
 #app {
+  position: relative;
   height: 100%;
   height: 100dvh;
   max-width: none;
@@ -94,6 +98,8 @@ body {
 
 .tagline {
   margin: 0;
+  margin-right: auto;
+  margin-left: 16px;
   color: var(--ink-dim);
   font-size: 13px;
   white-space: nowrap;
@@ -111,6 +117,7 @@ body {
   font: 700 20px/1 var(--font-ui);
   cursor: pointer;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  z-index: 30;
 }
 
 .help-toggle:hover {
@@ -121,6 +128,10 @@ body {
 
 .help-toggle:active {
   transform: scale(0.96);
+}
+
+.help-backdrop {
+  display: none;
 }
 
 /* ------------------------------------------------------------------- stage */
@@ -212,7 +223,7 @@ body {
 }
 
 .card-muted {
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .keys {
@@ -262,17 +273,16 @@ kbd {
 @media (max-width: 1100px), (pointer: coarse) and (max-width: 1400px) {
   #app {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) 0fr;
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       'head'
-      'stage'
-      'side';
-    gap: 8px;
+      'stage';
+    gap: 6px;
     padding:
-      max(8px, var(--safe-top))
-      max(10px, var(--safe-right))
-      max(8px, var(--safe-bottom))
-      max(10px, var(--safe-left));
+      max(6px, var(--safe-top))
+      max(8px, var(--safe-right))
+      max(6px, var(--safe-bottom))
+      max(8px, var(--safe-left));
   }
 
   .help-toggle {
@@ -283,56 +293,131 @@ kbd {
 
   .masthead {
     gap: 8px;
+    min-height: 40px;
+  }
+
+  .masthead h1 {
+    font-size: 18px;
   }
 
   .tagline {
     display: none;
   }
 
-  .sidecar {
-    display: none;
-    grid-template-columns: 1fr;
-    max-height: 42dvh;
-    padding-bottom: 4px;
+  .playfield {
+    border-radius: 10px;
+    padding: 4px;
   }
 
-  #app.help-open {
-    grid-template-rows: auto minmax(0, 1fr) minmax(140px, 42dvh);
+  .playfield-screen {
+    border-radius: 8px;
+  }
+
+  /* Sheet overlay — keeps the game full-size while help is open. */
+  .help-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .sidecar {
+    display: none;
+    position: fixed;
+    left: max(8px, var(--safe-left));
+    right: max(8px, var(--safe-right));
+    bottom: max(8px, var(--safe-bottom));
+    z-index: 25;
+    max-height: min(58dvh, 420px);
+    padding: 10px;
+    gap: 10px;
+    border-radius: 16px;
+    border: 1px solid #4a3c33;
+    background: linear-gradient(180deg, #221b17ee, #14100ef5);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  #app.help-open .help-backdrop {
+    display: block;
   }
 
   #app.help-open .sidecar {
     display: grid;
   }
-
-  .playfield {
-    border-radius: 12px;
-    padding: 6px;
-  }
 }
 
-@media (orientation: landscape) and (max-height: 820px) {
+/* Narrow phones in portrait — maximize the playfield. */
+@media (max-width: 700px) {
+  #app {
+    gap: 4px;
+    padding:
+      max(4px, var(--safe-top))
+      max(4px, var(--safe-right))
+      max(4px, var(--safe-bottom))
+      max(4px, var(--safe-left));
+  }
+
+  .masthead {
+    min-height: 36px;
+  }
+
   .masthead h1 {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .help-toggle {
     width: 40px;
     height: 40px;
+    border-radius: 10px;
   }
 
-  #app {
-    padding-top: max(4px, var(--safe-top));
-    padding-bottom: max(4px, var(--safe-bottom));
-    gap: 6px;
-  }
-
-  #app.help-open {
-    grid-template-rows: auto minmax(0, 1fr) minmax(120px, 36dvh);
+  .playfield {
+    border-radius: 8px;
+    padding: 3px;
+    border-color: #3a2f28;
   }
 }
 
-@media (max-width: 560px) and (orientation: portrait) {
-  .masthead h1 {
-    font-size: 18px;
+/* Landscape phones / short viewports — chrome almost disappears. */
+@media (orientation: landscape) and (max-height: 520px) {
+  #app {
+    grid-template-rows: 0 minmax(0, 1fr);
+    gap: 0;
+    padding:
+      max(2px, var(--safe-top))
+      max(2px, var(--safe-right))
+      max(2px, var(--safe-bottom))
+      max(2px, var(--safe-left));
+  }
+
+  .masthead {
+    position: fixed;
+    top: max(4px, var(--safe-top));
+    right: max(4px, var(--safe-right));
+    z-index: 30;
+    min-height: 0;
+    pointer-events: none;
+  }
+
+  .masthead h1,
+  .tagline {
+    display: none;
+  }
+
+  .help-toggle {
+    pointer-events: auto;
+    width: 36px;
+    height: 36px;
+    opacity: 0.92;
+  }
+
+  .playfield {
+    border-radius: 6px;
+    padding: 2px;
+  }
+
+  .sidecar {
+    max-height: min(70dvh, 280px);
   }
 }

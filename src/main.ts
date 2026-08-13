@@ -146,16 +146,25 @@ window.addEventListener('resize', () => {
   game.scale.resize(w, h);
 });
 
-// Collapsible help panel for tablets.
+// Collapsible help sheet for phones / tablets (overlay — stage size stays put).
 const helpToggle = document.getElementById('help-toggle');
+const helpBackdrop = document.getElementById('help-backdrop');
 const appRoot = document.getElementById('app');
+
+function setHelpOpen(open: boolean): void {
+  appRoot?.classList.toggle('help-open', open);
+  helpToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (helpToggle) helpToggle.textContent = open ? '✕' : '?';
+  if (helpBackdrop) helpBackdrop.hidden = !open;
+}
+
 helpToggle?.addEventListener('click', () => {
-  const open = appRoot?.classList.toggle('help-open');
-  helpToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  helpToggle.textContent = open ? '✕' : '?';
-  // Phaser needs a resize after the stage reflows.
-  requestAnimationFrame(() => {
-    const { w, h } = stageSize();
-    game.scale.resize(w, h);
-  });
+  const open = !appRoot?.classList.contains('help-open');
+  setHelpOpen(open);
+});
+helpBackdrop?.addEventListener('click', () => setHelpOpen(false));
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && appRoot?.classList.contains('help-open')) {
+    setHelpOpen(false);
+  }
 });

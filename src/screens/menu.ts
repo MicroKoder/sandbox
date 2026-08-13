@@ -38,8 +38,7 @@ export class SplashScreen implements Screen {
     drawLogoMark(p, SCREEN_W / 2, 66, 26);
 
     p.textShadow(S.title, SCREEN_W / 2, 108, C.gold, 'center');
-    p.text('QPLAZE / RMG · 2004', SCREEN_W / 2, 122, C.inkFaint, 'center');
-    p.text('ВЕБ-РЕМЕЙК', SCREEN_W / 2, 132, C.inkFaint, 'center');
+    p.text('ЭКОНОМИЧЕСКАЯ СТРАТЕГИЯ', SCREEN_W / 2, 124, C.inkFaint, 'center');
 
     if (Math.floor(this.t / 500) % 2 === 0) {
       p.text(S.pressAnyKey, SCREEN_W / 2, SCREEN_H - 22, C.ink, 'center');
@@ -208,17 +207,13 @@ export class AboutScreen implements Screen {
   private height = 0;
 
   private static readonly TEXT = [
-    'МАГНАТ ПИЦЦЫ — ВЕБ-РЕМЕЙК МОБИЛЬНОЙ ЭКОНОМИЧЕСКОЙ СТРАТЕГИИ PIZZA MAGNATE (J2ME, 2004).',
+    'МАГНАТ ПИЦЦЫ — ЭКОНОМИЧЕСКАЯ СТРАТЕГИЯ О ПИЦЦЕРИИ.',
     ' ',
-    'ОРИГИНАЛ:',
-    'РАЗРАБОТЧИК: QPLAZE',
-    'ИЗДАТЕЛЬ: RMG',
+    'УПРАВЛЯЙТЕ ЗАВЕДЕНИЕМ: ЗАКУПАЙТЕ ИНГРЕДИЕНТЫ И ПРОДУКТЫ, ПОКУПАЙТЕ РЕЦЕПТЫ, НАНИМАЙТЕ ПЕРСОНАЛ, ЗАПУСКАЙТЕ РЕКЛАМУ И МОДЕРНИЗИРУЙТЕ ПИЦЦЕРИЮ.',
     ' ',
-    'ИГРОВАЯ ЛОГИКА, ЭКОНОМИКА, ТАБЛИЦЫ МИССИЙ И ТЕКСТЫ ВОССТАНОВЛЕНЫ ИЗ ОРИГИНАЛЬНОГО JAR-ФАЙЛА.',
+    'ВЫПОЛНЯЙТЕ ЗАДАЧИ МИССИЙ, СЛЕДИТЕ ЗА РЕЙТИНГОМ И НЕ ДОПУСТИТЕ БАНКРОТСТВА.',
     ' ',
-    'ВСЯ ГРАФИКА И ЗВУК СОЗДАНЫ ЗАНОВО: ОРИГИНАЛЬНЫЕ РЕСУРСЫ НЕ ИСПОЛЬЗУЮТСЯ.',
-    ' ',
-    'РЕАЛИЗАЦИЯ: TYPESCRIPT + PHASER.',
+    'ВРЕМЯ ИДЁТ ТОЛЬКО НА ЭКРАНЕ «ПИЦЦЕРИЯ» — НА ОСТАЛЬНЫХ ВКЛАДКАХ МОЖНО ГОТОВИТЬСЯ БЕЗ ПОТЕРИ ИГРОВЫХ СУТОК.',
   ].join('\n');
 
   draw(app: App, p: Painter): void {
