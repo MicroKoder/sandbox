@@ -2,14 +2,24 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#12100f" />
-    <title>Магнат Пиццы — Pizza Magnate</title>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>Магнат Пиццы</title>
     <meta
       name="description"
-      content="Веб-ремейк мобильной экономической стратегии Pizza Magnate (2004). Управляйте пиццерией, разоряйте конкурентов."
+      content="Экономическая стратегия: управляйте пиццерией, нанимайте персонал, разоряйте конкурентов."
     />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8D%95%3C/text%3E%3C/svg%3E" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8D%95%3C/text%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
@@ -19,8 +29,17 @@
           <span class="logo-slice">Магнат</span>
           <span class="logo-slice logo-accent">Пиццы</span>
         </h1>
-        <p class="tagline">Экономическая стратегия &middot; веб-ремейк J2ME-оригинала 2004&nbsp;года</p>
-        <button type="button" class="help-toggle" id="help-toggle" aria-expanded="false" aria-controls="help-panel" title="Справка">?</button>
+        <p class="tagline">Экономическая стратегия · управляйте пиццерией</p>
+        <button
+          type="button"
+          class="help-toggle"
+          id="help-toggle"
+          aria-expanded="false"
+          aria-controls="help-panel"
+          title="Справка"
+        >
+          ?
+        </button>
       </header>
 
       <main class="stage">
@@ -31,32 +50,16 @@
         </div>
       </main>
 
-      <aside class="sidecar" id="help-panel">
+      <aside class="sidecar" id="help-panel" aria-label="Справка">
         <section class="card">
-          <h2>Управление</h2>
-          <dl class="keys">
-            <dt><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dt>
-            <dd>перемещение курсора</dd>
-            <dt><kbd>Enter</kbd><kbd>Space</kbd></dt>
-            <dd>выбор</dd>
-            <dt><kbd>Esc</kbd><kbd>Backspace</kbd></dt>
-            <dd>назад / меню</dd>
-            <dt><kbd>Tab</kbd></dt>
-            <dd>переключить подэкран</dd>
-            <dt><kbd>Q</kbd><kbd>E</kbd></dt>
-            <dd>предыдущая / следующая вкладка</dd>
-            <dt><kbd>-</kbd><kbd>=</kbd></dt>
-            <dd>скорость времени</dd>
-            <dt><kbd>H</kbd></dt>
-            <dd>подсказка по экрану</dd>
-            <dt><kbd>4</kbd><kbd>6</kbd></dt>
-            <dd>маленькая продажа / покупка</dd>
-            <dt><kbd>7</kbd><kbd>9</kbd></dt>
-            <dd>большая продажа / покупка</dd>
-          </dl>
+          <h2>На телефоне</h2>
+          <p>
+            Касайтесь вкладок справа, строк списка и кнопок внизу экрана. Свайпайте списки вверх и
+            вниз. Кнопка «?» в шапке открывает эту справку.
+          </p>
           <p class="hint">
-            На планшете: касайтесь вкладок и строк, свайпайте списки вверх/вниз (ингредиенты, продукты,
-            цены). Кнопка «?» открывает эту справку.
+            Удобнее играть горизонтально: поле становится крупнее. Время идёт только на экране
+            «Пиццерия» — на остальных вкладках можно спокойно закупаться и нанимать персонал.
           </p>
         </section>
 
@@ -67,21 +70,30 @@
             запускайте рекламу и модернизируйте заведение. Выполните задачу миссии, не обанкротившись
             и не уронив рейтинг ниже&nbsp;10&nbsp;%.
           </p>
-          <p class="hint">
-            Как и в оригинале, время идёт только на экране «Пиццерия» — на остальных вкладках часы
-            стоят, и подготовка не отнимает игровых суток.
-          </p>
         </section>
 
         <section class="card card-muted">
-          <h2>О ремейке</h2>
-          <p>
-            Игровая логика, экономика и тексты восстановлены из оригинального
-            <code>Pizza-Magnate.jar</code>. Вся графика нарисована заново
-            процедурно&nbsp;— оригинальные ресурсы не используются.
-          </p>
+          <h2>Клавиатура</h2>
+          <dl class="keys">
+            <dt><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dt>
+            <dd>курсор</dd>
+            <dt><kbd>Enter</kbd></dt>
+            <dd>выбор</dd>
+            <dt><kbd>Esc</kbd></dt>
+            <dd>назад / меню</dd>
+            <dt><kbd>Tab</kbd></dt>
+            <dd>подэкран</dd>
+            <dt><kbd>Q</kbd><kbd>E</kbd></dt>
+            <dd>вкладки</dd>
+            <dt><kbd>-</kbd><kbd>=</kbd></dt>
+            <dd>скорость</dd>
+            <dt><kbd>H</kbd></dt>
+            <dd>подсказка</dd>
+          </dl>
         </section>
       </aside>
+
+      <div class="help-backdrop" id="help-backdrop" hidden></div>
     </div>
 
     <script type="module" src="./src/main.ts"></script>
